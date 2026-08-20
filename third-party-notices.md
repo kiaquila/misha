@@ -29,3 +29,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Jost
+
+`website/assets/fonts/jost-latin.woff2` is a latin subset of Jost, released
+under the SIL Open Font License 1.1. The license text ships beside the font as
+`website/assets/fonts/OFL-Jost.txt`. The font is self-hosted; this project
+loads no font, image, script or style from a third-party origin at runtime.

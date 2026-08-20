@@ -5,6 +5,18 @@ Original one-page CV portfolio for Mikhail Orlov, senior backend developer.
 role is fixed to backend developer with no role switcher. Read
 [`README.md`](./README.md) first for the verified facts and the open items.
 
+## Shared standards
+
+This repository consumes the `kiaquila/web-design` baseline. Follow every
+document under [`docs/standards/`](./docs/standards/); the runbooks under
+[`docs/operations/`](./docs/operations/) describe bootstrap, updates, GitHub
+settings and handoff. Those files are upstream-managed and change only through
+a reviewed update pull request — do not edit them here. The project's profile
+and its executable checks are recorded in `.web-design/project.json`.
+
+The rules below are this project's own and may tighten, never weaken, the
+shared standards.
+
 ## Identity
 
 The reference is the WOVE page by Polyera: a flat light-grey field, charcoal
@@ -126,10 +138,17 @@ from it.
 The stage is a Cloudflare Worker named `misha`, served from `dist/` by Workers
 Static Assets, with `worker/index.ts` attaching security headers. Its stable
 URL is `https://misha.ks-design.workers.dev` and every pull request gets its own
-versioned preview. Configuration lives in `website/wrangler.json` and in
-`stageProjects` in the repository's `.repo-guard.json`; the one-time Cloudflare
-connection is documented in [`docs/stage-hosting.md`](../docs/stage-hosting.md)
-and only the account owner can perform it.
+versioned preview. Configuration lives in
+[`website/wrangler.json`](./website/wrangler.json) — Worker name, pinned
+`compatibility_date`, `workers_dev: true` and `preview_urls: true`. The Git
+connection, the build settings, the cutover and the rollback are documented in
+[`docs/stage-hosting.md`](./docs/stage-hosting.md) and only the account owner
+can perform them.
+
+**The Worker still builds from `kiaquila/web-design`.** Its connection was not
+moved when this repository was created, so until the documented cutover runs,
+this repository's `main` does not deploy anything and the old path in that
+repository must stay in place as the rollback route.
 
 - **The stage is public.** It carries a real person's name, employers and
   career history. The contact address stays the placeholder until the owner
@@ -147,11 +166,11 @@ and only the account owner can perform it.
 From the repository root:
 
 ```bash
-node scripts/check-repository.mjs
+npm run preflight
 ```
 
 ```bash
-npm --prefix misha/website run check
+npm --prefix website run check
 ```
 
 Visually: 320px, 360px and 1440px, keyboard focus, the scroll-spy in the
