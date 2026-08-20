@@ -67,22 +67,44 @@ the only ornament. Everything follows from that.
 - Hierarchy is scale, weight, tracking and hairlines. There are no cards, no
   shadows, no rounded corners and no icons.
 
+## Repository baseline
+
+This repository is a standalone consumer of the shared `kiaquila/web-design`
+baseline: the policy scripts, guardrail workflows, regression tests and the
+standards under [`docs/standards/`](./docs/standards/) are managed upstream and
+change only through a reviewed update pull request. The project's own code,
+content, documents and deployment configuration are never touched by that
+updater. The selected profile, the executable checks and the pinned baseline
+are recorded in `.web-design/project.json` and `.web-design/lock.json`.
+
+The pin is **provisional**. `lock.json` points at commit
+`f042879d8b6d11cc80021bb19cc4aacd645cc621`, the head of the still-draft
+[kiaquila/web-design#46](https://github.com/kiaquila/web-design/pull/46), whose
+version is the prerelease `0.1.0-dev`. There is no immutable stable release to
+pin yet. Once #46 is merged and the first stable release is tagged, this
+repository has to be synced onto that release's full SHA in its own pull
+request.
+
 ## Checks
 
 From the repository root:
 
 ```bash
-node scripts/check-repository.mjs
+npm run preflight
 ```
 
 ```bash
-npm --prefix misha/website run check
+npm --prefix website run check
 ```
+
+`npm run preflight` is the shared baseline's own check — repository policy,
+managed-file drift and the baseline regression tests. The second command is
+this project's build and test suite, and is the check CI runs for it.
 
 Local preview:
 
 ```bash
-npm --prefix misha/website run dev
+npm --prefix website run dev
 ```
 
 ## Open items
@@ -98,6 +120,11 @@ npm --prefix misha/website run dev
   [misha.ks-design.workers.dev](https://misha.ks-design.workers.dev) from
   `main`, and each pull request gets its own preview. There is still no
   production target and no custom domain.
+- **The stage still builds from the old repository.** The Worker's Git
+  connection has not been moved yet: it is still `kiaquila/web-design` with
+  root `misha/website`. The cutover, its verification and its rollback are
+  written down in [`docs/stage-hosting.md`](./docs/stage-hosting.md) and need
+  the account owner.
 - **The CV itself is thin on numbers.** Every achievement on the page is
   qualitative — "refactoring of the payment processing system" — because that
   is what the source CV says. Scale, load, latency and money are the single
