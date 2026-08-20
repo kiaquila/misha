@@ -85,6 +85,10 @@ pin yet. Once #46 is merged and the first stable release is tagged, this
 repository has to be synced onto that release's full SHA in its own pull
 request.
 
+How this repository was extracted from the monorepository, and what was proved
+about it, is recorded in
+[`docs/migration/source-provenance.md`](./docs/migration/source-provenance.md).
+
 ## Checks
 
 From the repository root:
