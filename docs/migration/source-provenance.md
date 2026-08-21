@@ -150,11 +150,18 @@ Both passes can be reproduced at any time by re-running their commands against
 
 ## Topology adaptation
 
-Only path topology and repository-shape wording were adapted. **No
-biographical fact, date, employer, achievement, metric or contact detail was
-changed.** The contact address is still the placeholder `example@e-mail.com`,
-the Telegram handle `chapppp` is still marked unverified, `SITE_ORIGIN` is
-still unset, and no canonical URL or custom domain was invented.
+Apart from the redaction described above, only path topology and
+repository-shape wording were adapted. **No biographical fact, date, employer,
+achievement or metric was changed, and nothing the page publishes was touched.**
+The contact address the site renders is still the placeholder
+`example@e-mail.com`, the Telegram handle `chapppp` is still marked unverified,
+`SITE_ORIGIN` is still unset, and no canonical URL or custom domain was
+invented.
+
+The one exception is the redaction: `README.md` no longer quotes the owner's
+real address when it explains what the placeholder stands in for. That is a
+removal for his privacy, not a change to a fact — the fact that his CV carries
+a real address, and that publishing it is his decision, is still stated.
 
 - `README.md` and `AGENTS.md`: `npm --prefix misha/website run check|dev` lost
   the directory prefix, and `node scripts/check-repository.mjs` became
