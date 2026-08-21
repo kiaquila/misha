@@ -114,9 +114,10 @@ npm --prefix website run dev
 ## Open items
 
 - **The contact address is a placeholder.** `links.email` is
-  `example@e-mail.com`, and the build says so on every run. The CV carries
-  `cucumberfalse@gmail.com`; publishing it is the owner's call, so the page
-  waits for that decision rather than making it for him.
+  `example@e-mail.com`, and the build says so on every run. His CV carries a
+  real address, which is deliberately not written down anywhere in this
+  repository; publishing it is the owner's call, so the page waits for that
+  decision rather than making it for him.
 - **No domain yet.** `SITE_ORIGIN` is unset, so the build ships no canonical
   URL, no `og:url` and no sitemap, and prints a warning on every run. Set it
   once the page has a home, then rebuild.
