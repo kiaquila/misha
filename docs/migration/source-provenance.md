@@ -13,8 +13,13 @@ were carried over by `git filter-repo` and then proved against the source.
 | Source commit (published `main`) | `3b99cb3d23328013c28eb73ab8525b13b6992d9e` |
 | Source subtree | `misha/` |
 | Source subtree tree object | `b36de60ad7190e3558155e90f2030a42c9e5bfcb` |
-| Rewritten `main` | `30049d6c345fcf38ef3e9178be8ca7849afd09ec` |
+| Rewritten `main` | `83c3c22e76526cf3378d4cbf25e1cbd0350d1207` |
+| Rewritten `main` tree object | `28278b9bee03602e1b9305760ffcb166c4198d8d` |
 | Tags | none — the source project carried no tag |
+
+The two tree objects differ by exactly one line, and only because of the
+redaction described under **One redaction** below. Everything else is the same
+object.
 
 ## How the history was rewritten
 
@@ -35,18 +40,20 @@ which is the only topology change the history rewrite makes.
 All four checks were run on the filtered clone, before the baseline or any
 adaptation was committed.
 
-1. **Exact tree.** The root tree of the rewritten `main` is
+1. **Exact tree.** The root tree of the rewritten `main` was
    `b36de60ad7190e3558155e90f2030a42c9e5bfcb` — the same tree object the source
    repository published under `misha/` at
-   `3b99cb3d23328013c28eb73ab8525b13b6992d9e`. All 21 files are therefore
-   byte-identical to the source, not merely equivalent.
+   `3b99cb3d23328013c28eb73ab8525b13b6992d9e`. All 21 files were therefore
+   byte-identical to the source, not merely equivalent. The later redaction
+   changed one line of one of them; the other 20 blobs still carry their
+   original object ids, and the changed one is accounted for below.
 2. **Commit history.** The one project commit that ever touched `misha/` is
    present, with its original author and date, and the rewritten `main` carries
    exactly that one and nothing else:
 
    | Rewritten | Source | Subject |
    | --- | --- | --- |
-   | `30049d6` | `48024e7` | Add the Misha CV portfolio and its Cloudflare stage (#42) |
+   | `83c3c22` | `48024e7` | Add the Misha CV portfolio and its Cloudflare stage (#42) |
 
    The source repository squash-merges its pull requests, so the three commits
    of `misha/cv-portfolio` (pull request #42) were collapsed into that single
@@ -72,21 +79,74 @@ adaptation was committed.
 - **Third-party notices for other projects.** `third-party-notices.md` keeps
   only the baseline's own notice plus the Jost licence this project ships.
 
+## One redaction
+
+The migrated `README.md` explained the placeholder contact address by quoting
+the owner's real one from his CV. That put a private individual's email in a
+document every reader of this repository sees, which is the exposure the
+placeholder exists to prevent, and deleting it from the current tree alone
+would have left it readable in the parent commit.
+
+So the address was removed from **every reachable commit**, not just from the
+tip:
+
+```bash
+# replacements.txt holds the address on one line and is not committed
+git filter-repo --replace-text replacements.txt
+```
+
+`git filter-repo` replaces a matched literal with its own `***REMOVED***`
+marker, so the migrated commit now reads
+
+```
+  `***REMOVED***`; publishing it is the owner's call, so the page
+```
+
+and the commit on top of the baseline rewrites that whole sentence into wording
+that needs no address at all.
+
+### What this costs, stated plainly
+
+The migration can no longer be proved by tree-object identity alone. The exact
+extent of the difference is therefore recorded here:
+
+| Fact | Value |
+| --- | --- |
+| Files in the migrated tree | 21 |
+| Files whose blob still matches the source exactly | 20 |
+| The one changed file | `README.md` |
+| Its blob upstream | `d8a25a4d7a9ab941a04f094b5a87146f5be373e2` |
+| Its blob here | `b516d8795425dd9879bde0f8b1ec730ba3110cd9` |
+| Lines changed | 1 — line 92, the quoted address |
+
+Anyone can reproduce that: take `misha/README.md` at
+`3b99cb3d23328013c28eb73ab8525b13b6992d9e`, replace the quoted address with
+`***REMOVED***`, and the blob hashes to `b516d879`.
+
+### Still outstanding
+
+`kiaquila/web-design` is a **public** repository and still carries the address
+in `misha/README.md` on `main` and in its history. Purging it here does not
+undo that, and the address should be treated as already disclosed. Cleaning up
+the upstream repository is a separate, deliberate decision that has not been
+taken.
+
 ## Commit map
 
-`git filter-repo` wrote a full old→new commit map for all 143 rewritten
-commits. It is not committed — it describes the migration event, not the
-product — and is kept locally at
+`git filter-repo` wrote a full old→new commit map for each of its two passes —
+the extraction and the redaction. They are not committed, because they describe
+the migration event rather than the product, and are kept locally at
 `~/projects/web-design/.claude/migration/misha-2026-08-20/`:
 
 | File | SHA-256 |
 | --- | --- |
 | `commit-map.txt` | `5dab8e8d3acb47311c7145ed715848472271d58365eee2bf93eeb5dddba6af2a` |
 | `ref-map.txt` | `e885047671ab34af03b4254ba0193b35e6a2ddfbbd2c6d277d472a7924f9b93c` |
+| `redaction-commit-map.txt` | `936838e41e73a5bdf7704ac74eb16759abb7cee6ce900fb83844e46ed0653d69` |
+| `redaction-ref-map.txt` | `9e1b5f2d8798a9c24309fc34d819afdf8c22506a35a221cc736b60565d53c01e` |
 
-The same map can be reproduced at any time by re-running the command above
-against `3b99cb3d23328013c28eb73ab8525b13b6992d9e`; the rewrite is
-deterministic.
+Both passes can be reproduced at any time by re-running their commands against
+`3b99cb3d23328013c28eb73ab8525b13b6992d9e`; the rewrites are deterministic.
 
 ## Topology adaptation
 
