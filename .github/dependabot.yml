@@ -1,0 +1,29 @@
+# Every workflow in this repository is a managed baseline file: it is listed in
+# `.web-design/managed-files.json` and pinned by hash in `.web-design/lock.json`.
+# A Dependabot pull request that bumped an action pin inside one of them would
+# be rejected as managed-file drift, so the `github-actions` ecosystem is
+# deliberately not watched here. Action pins move with the baseline instead —
+# see `docs/operations/updates.md`.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/website"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      npm-minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
