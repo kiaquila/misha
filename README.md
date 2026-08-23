@@ -78,7 +78,7 @@ updater. The selected profile, the executable checks and the pinned baseline
 are recorded in `.web-design/project.json` and `.web-design/lock.json`.
 
 The pin is **provisional**. `lock.json` points at commit
-`f567b125e4ecf07922a6b2f98b5cf17b338b478d`, the head of the still-draft
+`6e0050b035ba2f7bd7584fade4a028278e06e779`, the head of the still-draft
 [kiaquila/web-design#46](https://github.com/kiaquila/web-design/pull/46), whose
 version is the prerelease `0.1.0-dev`. There is no immutable stable release to
 pin yet. Once #46 is merged and the first stable release is tagged, this
