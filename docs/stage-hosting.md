@@ -129,7 +129,8 @@ to `website/*` is also correct and only skips builds for root-document changes.
 
 ## Cutover record — 2026-08-26
 
-- Rollback version before the cutover: `89500e8b`.
+- Rollback version before the cutover:
+  `89500e8b-e12d-446c-a772-e30c7d8e6cff` (dashboard prefix `89500e8b`).
 - Build served before the cutover: `kiaquila/web-design` commit
   `8ca389c8178aa5b1b47fcf4c05a510534e36d68b`.
 - Preview verification build: `kiaquila/misha` commit
