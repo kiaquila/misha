@@ -10,7 +10,7 @@ const checker = fileURLToPath(new URL("../scripts/check-repository.mjs", import.
 
 // Each case gets a throwaway repository, because the checker reads the Git
 // index rather than a directory listing.
-function runOn(files) {
+function runOn(files, afterStaging) {
   const root = mkdtempSync(path.join(tmpdir(), "misha-safety-"));
   try {
     execFileSync("git", ["init", "-q"], { cwd: root });
@@ -20,6 +20,7 @@ function runOn(files) {
       writeFileSync(target, contents);
     }
     execFileSync("git", ["add", "-A", "-f"], { cwd: root });
+    afterStaging?.(root);
     const result = spawnSync(process.execPath, [checker], { cwd: root, encoding: "utf8" });
     return { code: result.status, output: `${result.stdout}${result.stderr}` };
   } finally {
@@ -149,4 +150,99 @@ test("a floating action tag is rejected", () => {
   });
   assert.equal(code, 1, output);
   assert.match(output, /use a full commit SHA/);
+});
+
+test("what was staged is what gets checked, not the working tree", () => {
+  // The address is staged, then scrubbed from disk before the check runs.
+  const { code, output } = runOn(
+    { ...CLEAN, "notes.md": `Write to ${UNLISTED_ADDRESS}.\n` },
+    (root) => writeFileSync(path.join(root, "notes.md"), "Nothing to see.\n")
+  );
+  assert.equal(code, 1, output);
+  assert.match(output, /not on the allowlist/);
+});
+
+test("a staged file deleted from the working tree is still checked", () => {
+  const { code, output } = runOn(
+    { ...CLEAN, "notes.md": `Write to ${UNLISTED_ADDRESS}.\n` },
+    (root) => rmSync(path.join(root, "notes.md"))
+  );
+  assert.equal(code, 1, output);
+  assert.match(output, /not on the allowlist/);
+});
+
+test("a Windows personal path is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    "notes.md": `Built in ${["C:", "Users", "Mikhail", "project"].join("\\")}.\n`
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /personal absolute path/);
+});
+
+test("a granular write grant on a pull-request workflow is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions:\n  contents: write"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /contents: write.*pull-request-triggered/);
+});
+
+test("a job-level write grant on a pull-request workflow is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "    runs-on: ubuntu-latest",
+      "    permissions:\n      pull-requests: write\n    runs-on: ubuntu-latest"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /pull-requests: write.*pull-request-triggered/);
+});
+
+test("an inline write grant is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions: { contents: write }"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /contents: write.*pull-request-triggered/);
+});
+
+test("a write grant on a workflow no pull request can start is allowed", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/release.yml": [
+      "name: Release",
+      "on:",
+      "  workflow_dispatch:",
+      "permissions:",
+      "  contents: write",
+      "jobs:",
+      "  release:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      ""
+    ].join("\n")
+  });
+  assert.equal(code, 0, output);
+});
+
+test("read-all stays acceptable", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions: read-all"
+    )
+  });
+  assert.equal(code, 0, output);
 });

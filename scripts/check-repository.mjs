@@ -10,8 +10,6 @@
 // what a push would publish.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 
 const root = process.cwd();
 const problems = [];
@@ -31,6 +29,17 @@ const tracked = execFileSync("git", ["ls-files", "-z"], {
 if (tracked.length === 0) {
   console.error("Repository safety could not read the Git index.");
   process.exit(1);
+}
+
+// Read the staged blob rather than the file on disk. `git ls-files` lists what
+// is in the index, so reopening the path would let a staged address or secret
+// pass review whenever the working-tree copy was edited or deleted afterwards.
+function readStaged(file) {
+  return execFileSync("git", ["cat-file", "blob", `:${file}`], {
+    cwd: root,
+    encoding: "buffer",
+    maxBuffer: 64 * 1024 * 1024
+  });
 }
 
 // 1. Directories and files that must never be committed. `.gitignore` states
@@ -78,22 +87,23 @@ const SECRET_PATTERNS = [
   [/\bCLOUDFLARE_API_TOKEN\s*[:=]\s*["']?[A-Za-z0-9_-]{20,}/, "a Cloudflare API token"]
 ];
 
-// A home directory from whoever happened to run a command. Written split so
-// this file does not trip its own rule.
-const PERSONAL_PATH = new RegExp(String.raw`(?:^|[\s"'\`(=])/(?:Users|home)/(?!runner\b)[A-Za-z0-9._-]+/`);
+// A home directory from whoever happened to run a command, in either the POSIX
+// or the Windows spelling. Written split so this file does not trip its own
+// rule.
+const PERSONAL_PATHS = [
+  new RegExp(String.raw`(?:^|[\s"'\`(=])/(?:Users|home)/(?!runner\b)[A-Za-z0-9._-]+/`),
+  new RegExp(String.raw`[A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][A-Za-z0-9._-]+`, "i"),
+  new RegExp(String.raw`\\\\[A-Za-z0-9._-]+\\(?:Users|home)\\[A-Za-z0-9._-]+`, "i")
+];
 
 const BINARY_EXTENSIONS = /\.(woff2?|ttf|otf|eot|png|jpe?g|gif|webp|avif|ico|pdf|zip|gz)$/i;
 
 for (const file of tracked) {
   if (BINARY_EXTENSIONS.test(file)) continue;
 
-  let text;
-  try {
-    text = readFileSync(path.join(root, file), "utf8");
-  } catch {
-    continue; // deleted from the working tree; the index copy is not our concern
-  }
-  if (text.includes("\0")) continue;
+  const blob = readStaged(file);
+  if (blob.includes(0)) continue; // binary
+  const text = blob.toString("utf8");
 
   for (const address of text.match(EMAIL) || []) {
     if (!ALLOWED_EMAILS.has(address.toLowerCase())) {
@@ -105,26 +115,76 @@ for (const file of tracked) {
     if (pattern.test(text)) fail(file, `looks like it contains ${what}`);
   }
 
-  if (PERSONAL_PATH.test(text)) {
+  if (PERSONAL_PATHS.some((pattern) => pattern.test(text))) {
     fail(file, "contains a personal absolute path");
   }
 }
 
 // 3. Workflow permissions. Every workflow here runs on events a pull request
-//    can trigger, so a missing or over-broad grant is the one CI mistake that
-//    would matter.
-for (const file of tracked.filter((name) => /^\.github\/workflows\/.+\.ya?ml$/.test(name))) {
-  const text = readFileSync(path.join(root, file), "utf8");
+//    can trigger, so an over-broad grant is the one CI mistake that would
+//    matter: a job holding a write token beside proposed code can be made to
+//    use it. `write-all` is the loud version, but `contents: write` on a single
+//    scope hands over the same token, so both are rejected.
 
-  if (!/^permissions:\s*$/m.test(text)) {
-    fail(file, "must declare top-level `permissions:`");
+// A line-oriented reader for the `permissions:` maps, which is all this needs:
+// it yields every scope grant, whether written as a block, an inline map, or a
+// bare `read-all` / `write-all` shorthand.
+function permissionGrants(text) {
+  const lines = text.split(/\r?\n/);
+  const grants = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const header = lines[index].match(/^(\s*)permissions:\s*(.*)$/);
+    if (!header) continue;
+    const [, indent, inline] = header;
+
+    if (inline.trim()) {
+      const braced = inline.trim().replace(/^\{|\}$/g, "");
+      if (braced === inline.trim() && !inline.includes(":")) {
+        grants.push({ scope: "*", value: inline.trim() });
+        continue;
+      }
+      for (const entry of braced.split(",")) {
+        const [scope, value] = entry.split(":").map((part) => part?.trim());
+        if (scope && value) grants.push({ scope, value });
+      }
+      continue;
+    }
+
+    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+      const line = lines[cursor];
+      if (!line.trim() || line.trim().startsWith("#")) continue;
+      const depth = line.match(/^(\s*)/)[1].length;
+      if (depth <= indent.length) break;
+      const entry = line.trim().match(/^([\w-]+):\s*(\S+)/);
+      if (entry) grants.push({ scope: entry[1], value: entry[2] });
+      else grants.push({ scope: "*", value: line.trim() });
+    }
   }
-  if (/\bwrite-all\b/.test(text)) {
-    fail(file, "must not grant `write-all`");
+  return grants;
+}
+
+for (const file of tracked.filter((name) => /^\.github\/workflows\/.+\.ya?ml$/.test(name))) {
+  const text = readStaged(file).toString("utf8");
+
+  if (!/^permissions:/m.test(text)) {
+    fail(file, "must declare top-level `permissions:`");
   }
   if (/^\s*pull_request_target:/m.test(text)) {
     fail(file, "must not use `pull_request_target`");
   }
+
+  // Anything a pull request can start runs beside proposed code.
+  const untrusted = /^\s*pull_request:/m.test(text) || /^\s*pull_request_target:/m.test(text);
+  for (const { scope, value } of permissionGrants(text)) {
+    const grant = value.replace(/^["']|["'],?$/g, "").toLowerCase();
+    if (grant === "write-all") {
+      fail(file, "must not grant `write-all`");
+    } else if (grant === "write" && untrusted) {
+      fail(file, `grants \`${scope}: write\` on a pull-request-triggered workflow`);
+    }
+  }
+
   for (const [, action, ref] of text.matchAll(/uses:\s*([\w.-]+\/[\w.\/-]+)@(\S+)/g)) {
     if (!/^[0-9a-f]{40}$/.test(ref)) {
       fail(file, `pins ${action} to \`${ref}\`; use a full commit SHA`);

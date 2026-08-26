@@ -12,12 +12,14 @@ repository safety check in [`scripts/`](./scripts/) with its tests, and these
 documents. Nothing here is owned or synced by another repository, so change it
 the way you would change any other file — in a reviewed pull request.
 
-`scripts/check-repository.mjs` is deliberately small. It reads the Git index and
-enforces four things: nothing that belongs outside Git is tracked, no contact
-address beyond the published placeholder appears anywhere, no credential or
-personal path leaks, and the workflow keeps its declared permissions and
-SHA-pinned actions. Extend it when this project gains a rule worth enforcing;
-do not grow it into a general-purpose policy engine.
+`scripts/check-repository.mjs` is deliberately small. It reads staged blobs out
+of the Git index rather than the working tree, so it sees exactly what a push
+would publish, and enforces four things: nothing that belongs outside Git is
+tracked, no contact address beyond the published placeholder appears anywhere,
+no credential or personal path leaks, and the workflow keeps its SHA-pinned
+actions and never grants a write token to anything a pull request can start.
+Extend it when this project gains a rule worth enforcing; do not grow it into a
+general-purpose policy engine.
 
 ## Identity
 
