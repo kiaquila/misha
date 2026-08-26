@@ -37,13 +37,18 @@ no sitemap, and warns about it on every run. `ks-design.art` belongs to the KS
 project; this page must never be deployed onto it or onto any other domain
 without explicit authorization.
 
-## Current connection — not yet moved
+## Current connection — switched off
 
 The Worker was created while this project lived in the `kiaquila/web-design`
-monorepository and **still builds from that repository**. Nothing in Cloudflare
-has been changed by this migration.
+monorepository. **Its Git integration is switched off at the moment**, so no
+push to either repository builds it, and nothing here deploys. Do not connect
+Cloudflare and do not deploy without the account owner.
 
-| Setting | Value in Cloudflare today |
+The settings below are what the connection carried before it was switched off.
+They are recorded so the cutover, or a rollback to the old repository, can be
+performed without rediscovering them — not as a description of a live build.
+
+| Setting | Value before it was switched off |
 | --- | --- |
 | Worker name | `misha` |
 | Repository | `kiaquila/web-design` |
@@ -55,21 +60,23 @@ has been changed by this migration.
 | Included build watch path | `misha/*` |
 
 The source path `misha/` is still present in `kiaquila/web-design`, so that
-connection keeps working until it is deliberately changed.
+connection can be restored as long as the path stays in place.
 
 ## Cutover to this repository
 
 Only the account owner can do this: the Git connection and the build
 credentials live in Cloudflare. Do not start before this repository's
-migration pull request is merged and its checks are green on `main`.
+migration pull request is merged and its checks are green on `main`, and do not
+start while the integration is deliberately switched off.
 
 1. In Cloudflare, record the Worker's **current active version id** and the
    commit it was built from. That is the rollback point.
 2. Authorize the Cloudflare GitHub App for `kiaquila/misha`. The repository is
    private, so the installation has to be granted access to it explicitly.
-3. **Disconnect the existing Git connection** from `kiaquila/web-design` before
-   connecting the new one. Two repositories must never be able to build the
-   same Worker at the same time.
+3. **Confirm no Git connection to `kiaquila/web-design` is active**, and remove
+   it if one has been restored in the meantime, before connecting the new one.
+   Two repositories must never be able to build the same Worker at the same
+   time.
 4. Connect `kiaquila/misha` to the same Worker — do not create a second Worker,
    and do not rename this one; Cloudflare requires the dashboard name to match
    `name` in `website/wrangler.json`.

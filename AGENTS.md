@@ -5,17 +5,19 @@ Original one-page CV portfolio for Mikhail Orlov, senior backend developer.
 role is fixed to backend developer with no role switcher. Read
 [`README.md`](./README.md) first for the verified facts and the open items.
 
-## Shared standards
+## Repository harness
 
-This repository consumes the `kiaquila/web-design` baseline. Follow every
-document under [`docs/standards/`](./docs/standards/); the runbooks under
-[`docs/operations/`](./docs/operations/) describe bootstrap, updates, GitHub
-settings and handoff. Those files are upstream-managed and change only through
-a reviewed update pull request — do not edit them here. The project's profile
-and its executable checks are recorded in `.web-design/project.json`.
+Everything outside `website/` belongs to this repository: one CI workflow, the
+repository safety check in [`scripts/`](./scripts/) with its tests, and these
+documents. Nothing here is owned or synced by another repository, so change it
+the way you would change any other file — in a reviewed pull request.
 
-The rules below are this project's own and may tighten, never weaken, the
-shared standards.
+`scripts/check-repository.mjs` is deliberately small. It reads the Git index and
+enforces four things: nothing that belongs outside Git is tracked, no contact
+address beyond the published placeholder appears anywhere, no credential or
+personal path leaks, and the workflow keeps its declared permissions and
+SHA-pinned actions. Extend it when this project gains a rule worth enforcing;
+do not grow it into a general-purpose policy engine.
 
 ## Identity
 
@@ -137,18 +139,20 @@ from it.
 
 The stage is a Cloudflare Worker named `misha`, served from `dist/` by Workers
 Static Assets, with `worker/index.ts` attaching security headers. Its stable
-URL is `https://misha.ks-design.workers.dev` and every pull request gets its own
-versioned preview. Configuration lives in
+URL is `https://misha.ks-design.workers.dev` and, while the Git integration is
+connected, every pull request gets its own versioned preview. Configuration
+lives in
 [`website/wrangler.json`](./website/wrangler.json) — Worker name, pinned
 `compatibility_date`, `workers_dev: true` and `preview_urls: true`. The Git
 connection, the build settings, the cutover and the rollback are documented in
 [`docs/stage-hosting.md`](./docs/stage-hosting.md) and only the account owner
 can perform them.
 
-**The Worker still builds from `kiaquila/web-design`.** Its connection was not
-moved when this repository was created, so until the documented cutover runs,
-this repository's `main` does not deploy anything and the old path in that
-repository must stay in place as the rollback route.
+**Nothing deploys from here yet.** The Cloudflare Git integration is switched
+off for the moment, so no push to this repository builds the Worker. Do not
+connect Cloudflare or deploy without the account owner; until the documented
+cutover runs, the `misha/` path in `kiaquila/web-design` must stay in place as
+the rollback route.
 
 - **The stage is public.** It carries a real person's name, employers and
   career history. The contact address stays the placeholder until the owner
@@ -166,11 +170,11 @@ repository must stay in place as the rollback route.
 From the repository root:
 
 ```bash
-npm run preflight
+npm run check
 ```
 
 ```bash
-npm --prefix website run check
+npm test
 ```
 
 Visually: 320px, 360px and 1440px, keyboard focus, the scroll-spy in the

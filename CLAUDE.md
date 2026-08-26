@@ -2,6 +2,7 @@
 
 @AGENTS.md
 
-Use `AGENTS.md` as the instruction source of truth. Also read `README.md` for
-the verified facts and the open items, `.web-design/project.json` for the
-profile and the executable checks, and the standards under `docs/standards/`.
+Use `AGENTS.md` as the instruction source of truth, and read `README.md` for the
+verified facts and the open items. `npm run check` runs the repository safety
+check and the website's build and tests; `npm test` covers the safety check
+itself.

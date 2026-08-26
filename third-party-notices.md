@@ -1,12 +1,11 @@
 # Third-party notices
 
-No third-party product asset is included in this baseline. Each project records
-the licenses and permitted use of its own fonts, images, software, and other
-external material here or beside the relevant files.
+This file records the licenses and permitted use of the fonts, images, software
+and other external material this repository ships.
 
-Parts of the repository-policy and workflow design were adapted from
+The workflow and repository-check design here was informed by
 [Unicorn Hub](https://github.com/kiaquila/unicorn-hub), retrieved at commit
-`1a3a22a5f800d2a7b221b3f97e41f04d6e4b73cf`.
+`1a3a22a5f800d2a7b221b3f97e41f04d6e4b73cf`, whose licence follows.
 
 MIT License
 

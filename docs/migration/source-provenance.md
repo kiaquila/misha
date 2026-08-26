@@ -73,11 +73,12 @@ adaptation was committed.
 - **Monorepository-only infrastructure.** `.repo-guard.json`, the multi-project
   `ci.yml`, the shared `docs/stage-hosting.md`, the Cloudflare
   stage-registration workflow and script, and the KS production-deploy workflow
-  describe a workspace that no longer exists here; the `web-design` baseline
-  replaces them, and this project's own stage settings now live in
-  `docs/stage-hosting.md` at this root.
+  describe a workspace that no longer exists here. They are replaced by this
+  repository's own single CI workflow and repository safety check, and this
+  project's own stage settings now live in `docs/stage-hosting.md` at this
+  root.
 - **Third-party notices for other projects.** `third-party-notices.md` keeps
-  only the baseline's own notice plus the Jost licence this project ships.
+  only the notices this project's own files need.
 
 ## One redaction
 
@@ -164,12 +165,11 @@ removal for his privacy, not a change to a fact — the fact that his CV carries
 a real address, and that publishing it is his decision, is still stated.
 
 - `README.md` and `AGENTS.md`: `npm --prefix misha/website run check|dev` lost
-  the directory prefix, and `node scripts/check-repository.mjs` became
-  `npm run preflight`, which is the baseline's own repository check.
-- `AGENTS.md` gained a short **Shared standards** section pointing at
-  `docs/standards/` and `.web-design/project.json`, because the baseline's own
-  `AGENTS.md` — which normally carries that pointer — was not installed over
-  the project's approved instructions.
+  the directory prefix, and the repository check is now reached through
+  `npm run check`.
+- `README.md` and `AGENTS.md` each gained a short **Repository harness**
+  section describing the CI workflow and the repository safety check that this
+  repository owns.
 - The deployment section of `AGENTS.md` dropped `.repo-guard.json` and the link
   to the monorepository's `../docs/stage-hosting.md`. Both are replaced by
   `website/wrangler.json` plus this repository's own
@@ -177,48 +177,28 @@ a real address, and that publishing it is his decision, is still stated.
   build settings. The `static-cloudflare` profile keeps Worker names, domains
   and account identifiers project-owned, so they belong here rather than in the
   baseline.
-- `README.md` gained a **Repository baseline** section and one open item
-  recording that the Cloudflare stage still builds from the old repository.
-- `CLAUDE.md` and the root `package.json` came from the baseline and were named
-  for this project.
+- `README.md` gained one open item recording that nothing deploys from here
+  yet.
+- `CLAUDE.md` and the root `package.json` were added for this project.
 - `website/` was not touched at all: no source file, asset, test or
   `wrangler.json` value differs from the source commit.
 
-## Baseline pin — provisional
-
-`.web-design/lock.json` pins
-`6e0050b035ba2f7bd7584fade4a028278e06e779` from the
-`codex/web-design-template-v2` branch of `kiaquila/web-design`, at version
-`0.1.0-dev`.
-
-**This is deliberately a provisional pin.** `kiaquila/web-design` has not yet
-published an immutable stable release, because the pull request that turns it
-into a template — [`kiaquila/web-design#46`](https://github.com/kiaquila/web-design/pull/46)
-— is still a draft and must not be merged until every project has been migrated
-and verified. `6e0050b0` is the exact, reachable commit that pull request
-proposes, so it is a real 40-character SHA that `baseline-source-verification`
-can download and compare, and the standard `npm run setup` adoption path
-accepted it without any workaround.
-
-### Required follow-up
-
-After `kiaquila/web-design#46` is merged and the first immutable stable release
-is published, this project must be moved onto that release's full commit SHA in
-its own separate pull request:
-
-```bash
-npm run sync:web-design -- plan  --source-ref <stable-release-sha> --version <x.y.z>
-npm run sync:web-design -- apply --source-ref <stable-release-sha> --version <x.y.z>
-```
-
-Until that pull request is merged, this repository is pinned to a prerelease
-baseline and `0.1.0-dev` must not be treated as a released version.
-
 ## Cloudflare — prepared, not switched
 
-Nothing in Cloudflare was changed during this migration. The Worker `misha`
-still builds from `kiaquila/web-design` at root `misha/website`. The target
-settings, the verification and the rollback-safe cutover order are in
-[`../stage-hosting.md`](../stage-hosting.md). Until the cutover happens, the
-source directory in the monorepository must stay in place, and the two
-repositories must never both deploy this Worker.
+Nothing in Cloudflare was changed during this migration, and the Git
+integration is switched off at the moment, so neither repository is building the
+Worker. The recorded settings, the verification and the rollback-safe cutover
+order are in [`../stage-hosting.md`](../stage-hosting.md). Until the cutover
+happens, the source directory in the monorepository must stay in place, and the
+two repositories must never both deploy this Worker.
+
+## What this repository ended up carrying
+
+The migration first installed a shared `web-design` baseline — a pinned lock and
+release manifest, managed-file and profile records, a sync and bootstrap path, a
+baseline-source verification workflow, a large generic repository guard, and a
+set of generic operations and standards documents. None of that described this
+project, and all of it has since been removed in favour of what this repository
+actually owns: one CI workflow, `scripts/check-repository.mjs` with its tests,
+and these documents. There is no pinned release, no automatic sync and no
+upstream ownership of any file here.

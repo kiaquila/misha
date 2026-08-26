@@ -1,7 +1,4 @@
-# Shared baseline trust boundary. Enable required Code Owner review in the ruleset.
+# Review boundary for the files that decide what CI enforces and what ships.
 /.github/ @kiaquila
-/.web-design/ @kiaquila
-/docs/operations/ @kiaquila
-/docs/standards/ @kiaquila
 /scripts/ @kiaquila
 /tests/ @kiaquila
