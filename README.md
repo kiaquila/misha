@@ -70,11 +70,16 @@ the only ornament. Everything follows from that.
 ## Repository harness
 
 Everything outside `website/` is this repository's own: one CI workflow, one
-repository safety check with its tests, and the documents. Its only dependency
-is a YAML parser, so the workflow checks read structure rather than guessing at
-it with regular expressions. There is no shared
+repository safety check with its tests, the weekly dependency policy in
+[`.github/dependabot.yml`](./.github/dependabot.yml), and the documents. Its
+only dependency is a YAML parser, so the workflow checks read structure rather
+than guessing at it with regular expressions. There is no shared
 baseline to pin, no automatic sync, and no file here owned by another
 repository — a change to any of it is a normal reviewable pull request.
+
+The harness is marked `linguist-vendored` in
+[`.gitattributes`](./.gitattributes), so GitHub's language bar describes the
+website rather than its guardrails.
 
 How this repository was extracted from the monorepository, and what was proved
 about it, is recorded in

@@ -14,7 +14,8 @@ the way you would change any other file — in a reviewed pull request.
 
 `scripts/check-repository.mjs` is deliberately small. It reads staged blobs out
 of the Git index rather than the working tree, so it sees exactly what a push
-would publish, and enforces four things: nothing that belongs outside Git is
+would publish, and enforces five things: `.gitattributes` and
+`.github/dependabot.yml` are tracked, nothing that belongs outside Git is
 tracked, no contact address beyond the published placeholder appears anywhere,
 no credential or personal path leaks, and the workflows parse as YAML with every
 action pinned to a full commit SHA and **no write token granted anywhere**.
@@ -23,6 +24,41 @@ integration, not from Actions — so if a workflow ever does, loosening that rul
 is the reviewable change that grants it. Extend the check when this project
 gains a rule worth enforcing; do not grow it into a general-purpose policy
 engine.
+
+Those two files are on the required list because each is *only* policy while it
+exists, and losing either breaks nothing that anyone would notice:
+
+- **`.gitattributes` marks the harness `linguist-vendored`**, so the language
+  bar describes the website and not its guardrails. Everything outside
+  `website/` belongs on that list and nothing inside it does — the site's build
+  and serve scripts are part of the site. A test reads `git check-attr` on both
+  sides of that line.
+- **`.github/dependabot.yml` schedules the weekly updates**: minor and patch
+  grouped into one pull request per ecosystem, every major on its own, and a
+  cooldown that holds a fresh release back — seven days by default, and for npm
+  fourteen for a major, seven for a minor, three for a patch. `github-actions`
+  gets the default only: an action tag is whatever its author pushed, so
+  Dependabot cannot read a semantic version out of it and a `semver-*-days` key
+  there would be a rule that never fires. Each npm entry has to name a
+  directory that really holds a `package.json` and a lockfile, and a test walks
+  the file to check it. **Alerts and security updates are repository settings,
+  not this file** — they are enabled in the repository and this file only
+  schedules routine version bumps.
+
+Both files are checked the way the checker checks everything else: **out of the
+Git index, not the working tree.** Staging a broken policy and then repairing
+only the working copy would otherwise leave `npm test` green while the next push
+published the broken bytes, and a policy file verified in the one state that
+never gets published is not verified at all. That is why `tests/harness.test.mjs`
+reads through `git cat-file blob :<path>` and asks `git check-attr` for
+`--cached`.
+
+The OSV scan runs as two steps out of one pinned release: the scanner writes
+JSON and is allowed to fail, then the reporter turns that JSON into pull-request
+annotations and fails the job on a finding. The scanner must keep
+`continue-on-error: true`, or a vulnerability ends the job before anything
+annotates it. Nothing uploads a SARIF file, so the job takes no permissions of
+its own.
 
 ## Identity
 

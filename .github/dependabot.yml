@@ -1,5 +1,14 @@
+# Weekly dependency updates.
+#
+# Minor and patch updates arrive as one grouped pull request per ecosystem;
+# major updates stay separate so each is reviewed on its own. The cooldown
+# holds a freshly published version out of the repository for a few days.
+#
+# This file only schedules routine version updates. Dependabot alerts and
+# security updates are repository settings and are enabled there.
 version: 2
 updates:
+  # The website's own toolchain.
   - package-ecosystem: "npm"
     directory: "/website"
     schedule:
@@ -14,7 +23,7 @@ updates:
       semver-minor-days: 7
       semver-patch-days: 3
     groups:
-      npm-minor-and-patch:
+      website-minor-and-patch:
         applies-to: "version-updates"
         patterns:
           - "*"
@@ -31,6 +40,19 @@ updates:
       time: "07:00"
       timezone: "UTC"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      harness-minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # The workflow is this repository's own file, so an action-pin bump is a
   # normal reviewable pull request here.
@@ -42,3 +64,15 @@ updates:
       time: "07:00"
       timezone: "UTC"
     open-pull-requests-limit: 5
+    # Action tags are not guaranteed to be semantic versions, so only the
+    # default cooldown applies to this ecosystem.
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions-minor-and-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

@@ -36,6 +36,8 @@ const PERSONAL_PATH = ["", "Users", "someone", "projects"].join("/");
 
 const CLEAN = {
   "README.md": "Write to example@e-mail.com.\n",
+  ".gitattributes": "scripts/check-repository.mjs linguist-vendored\n",
+  ".github/dependabot.yml": "version: 2\nupdates: []\n",
   ".github/workflows/ci.yml": [
     "name: CI",
     "on:",
@@ -71,6 +73,28 @@ test("the published placeholder and the review trailer stay allowed", () => {
     ...CLEAN,
     "README.md": "example@e-mail.com\n\nCo-authored-by: Codex <codex@openai.com>\n"
   });
+  assert.equal(code, 0, output);
+});
+
+test("a missing .gitattributes is rejected", () => {
+  const { [".gitattributes"]: _dropped, ...withoutAttributes } = CLEAN;
+  const { code, output } = runOn(withoutAttributes);
+  assert.equal(code, 1, output);
+  assert.match(output, /\.gitattributes: is required but is not tracked/);
+});
+
+test("a missing dependabot configuration is rejected", () => {
+  const { [".github/dependabot.yml"]: _dropped, ...withoutDependabot } = CLEAN;
+  const { code, output } = runOn(withoutDependabot);
+  assert.equal(code, 1, output);
+  assert.match(output, /dependabot\.yml: is required but is not tracked/);
+});
+
+test("a required file deleted from the working tree but still staged passes", () => {
+  // The rule reads the index, like every other rule here.
+  const { code, output } = runOn(CLEAN, (root) =>
+    rmSync(path.join(root, ".github/dependabot.yml"))
+  );
   assert.equal(code, 0, output);
 });
 
