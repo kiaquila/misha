@@ -459,3 +459,17 @@ test("a local reusable workflow that does not exist is rejected", () => {
   assert.equal(code, 1, output);
   assert.match(output, /which is not tracked/);
 });
+
+test("a step-level local action is an action even when its directory ends in .yml", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": LOCAL_ACTION_WORKFLOW.replace(
+      "./.github/actions/setup",
+      "./.github/actions/setup.yml"
+    ),
+    ".github/actions/setup.yml/action.yml": composite(
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020"
+    )
+  });
+  assert.equal(code, 0, output);
+});

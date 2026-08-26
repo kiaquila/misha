@@ -146,13 +146,15 @@ function permissionGrants(permissions) {
   }));
 }
 
-function stepUses(node) {
-  const uses = [];
-  if (typeof node?.uses === "string") uses.push(node.uses); // reusable workflow
+// What a `uses` names depends on where it is written, not on how it is spelled:
+// at job level it calls a reusable workflow, and in a step it runs an action.
+function usesCalls(node) {
+  const calls = [];
+  if (typeof node?.uses === "string") calls.push({ uses: node.uses, position: "workflow" });
   for (const step of Array.isArray(node?.steps) ? node.steps : []) {
-    if (typeof step?.uses === "string") uses.push(step.uses);
+    if (typeof step?.uses === "string") calls.push({ uses: step.uses, position: "action" });
   }
-  return uses;
+  return calls;
 }
 
 const trackedSet = new Set(tracked);
@@ -160,14 +162,14 @@ const trackedSet = new Set(tracked);
 // A `./` reference runs an action from this repository, so its own bytes are
 // reviewed here — but the steps inside it are not, and a composite action is
 // free to call a mutable third-party one. Follow it.
-function checkUses(file, where, uses, seen) {
+function checkUses(file, where, { uses, position }, seen) {
   if (uses.startsWith("./")) {
     const target = uses.replace(/^\.\//, "").replace(/\/$/, "");
 
-    // A job-level `uses` may name a reusable workflow file rather than an
-    // action directory. That file lives under `.github/workflows/`, so the loop
-    // above already holds it to these same rules; it only has to exist.
-    if (/\.ya?ml$/.test(target)) {
+    // At job level the target is a reusable workflow file. It lives under
+    // `.github/workflows/`, so the loop above already holds it to these same
+    // rules; here it only has to exist.
+    if (position === "workflow") {
       if (!trackedSet.has(target)) {
         fail(file, `${where} uses \`${uses}\`, which is not tracked`);
       }
@@ -192,7 +194,7 @@ function checkUses(file, where, uses, seen) {
       fail(manifest, `is not valid YAML: ${error.message}`);
       return;
     }
-    for (const nested of stepUses(action?.runs)) {
+    for (const nested of usesCalls(action?.runs)) {
       checkUses(manifest, `the composite action reached from ${file}`, nested, seen);
     }
     return;
@@ -265,8 +267,8 @@ for (const file of tracked.filter((name) => /^\.github\/workflows\/.+\.ya?ml$/.t
   }
 
   for (const [name, job] of Object.entries(jobs)) {
-    for (const uses of stepUses(job)) {
-      checkUses(file, `job \`${name}\``, uses, new Set());
+    for (const call of usesCalls(job)) {
+      checkUses(file, `job \`${name}\``, call, new Set());
     }
   }
 }
