@@ -118,15 +118,12 @@ npm --prefix website run dev
 - **No domain yet.** `SITE_ORIGIN` is unset, so the build ships no canonical
   URL, no `og:url` and no sitemap, and prints a warning on every run. Set it
   once the page has a home, then rebuild.
-- **Staged, not published — and not building right now.** The Cloudflare
-  Worker `misha` serves
-  [misha.ks-design.workers.dev](https://misha.ks-design.workers.dev), but its
-  Git integration is switched off for the moment, so neither this repository
-  nor the old one is building it and the stage serves whatever was deployed
-  last. There is still no production target and no custom domain. The recorded
-  settings, the cutover, its verification and its rollback are written down in
-  [`docs/stage-hosting.md`](./docs/stage-hosting.md) and need the account
-  owner.
+- **Staged, not published.** The Cloudflare Worker `misha` serves
+  [misha.ks-design.workers.dev](https://misha.ks-design.workers.dev) and builds
+  this repository: `main` updates the stable stage and other branches receive
+  isolated preview URLs. There is still no production target and no custom
+  domain. The live settings, verification record and rollback are written down
+  in [`docs/stage-hosting.md`](./docs/stage-hosting.md).
 - **The CV itself is thin on numbers.** Every achievement on the page is
   qualitative — "refactoring of the payment processing system" — because that
   is what the source CV says. Scale, load, latency and money are the single

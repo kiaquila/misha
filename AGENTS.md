@@ -153,11 +153,11 @@ connection, the build settings, the cutover and the rollback are documented in
 [`docs/stage-hosting.md`](./docs/stage-hosting.md) and only the account owner
 can perform them.
 
-**Nothing deploys from here yet.** The Cloudflare Git integration is switched
-off for the moment, so no push to this repository builds the Worker. Do not
-connect Cloudflare or deploy without the account owner; until the documented
-cutover runs, the `misha/` path in `kiaquila/web-design` must stay in place as
-the rollback route.
+**This repository owns the stage deployment.** Cloudflare is connected to
+`kiaquila/misha`: `main` builds the stable Worker and non-production branches
+build isolated previews. The old `kiaquila/web-design` connection is disabled;
+keep its `misha/` path in place as the documented rollback route until the
+account owner decides to retire it.
 
 - **The stage is public.** It carries a real person's name, employers and
   career history. The contact address stays the placeholder until the owner

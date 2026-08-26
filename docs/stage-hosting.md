@@ -37,18 +37,31 @@ no sitemap, and warns about it on every run. `ks-design.art` belongs to the KS
 project; this page must never be deployed onto it or onto any other domain
 without explicit authorization.
 
-## Current connection — switched off
+## Current connection
+
+Cloudflare Workers Builds has been connected to `kiaquila/misha` since
+2026-08-26. The old `kiaquila/web-design` Git connection was confirmed inactive
+before this connection was enabled.
+
+| Setting | Live value |
+| --- | --- |
+| Worker name | `misha` |
+| Repository | `kiaquila/misha` |
+| Production branch | `main` |
+| Root directory | `website` |
+| Build command | `npm run build` |
+| Production deploy command | `npm run stage:deploy` |
+| Non-production deploy command | `npm run stage:preview` |
+| Non-production branch builds | enabled |
+| Included build watch path | default |
+| Build token | `misha build token` |
+
+### Previous connection for full rollback
 
 The Worker was created while this project lived in the `kiaquila/web-design`
-monorepository. **Its Git integration is switched off at the moment**, so no
-push to either repository builds it, and nothing here deploys. Do not connect
-Cloudflare and do not deploy without the account owner.
+monorepository. These settings are retained solely for the full rollback path.
 
-The settings below are what the connection carried before it was switched off.
-They are recorded so the cutover, or a rollback to the old repository, can be
-performed without rediscovering them — not as a description of a live build.
-
-| Setting | Value before it was switched off |
+| Setting | Previous value |
 | --- | --- |
 | Worker name | `misha` |
 | Repository | `kiaquila/web-design` |
@@ -65,9 +78,9 @@ connection can be restored as long as the path stays in place.
 ## Cutover to this repository
 
 Only the account owner can do this: the Git connection and the build
-credentials live in Cloudflare. Do not start before this repository's
-migration pull request is merged and its checks are green on `main`, and do not
-start while the integration is deliberately switched off.
+credentials live in Cloudflare. Do not repeat the procedure unless this
+repository's checks are green on `main` and the account owner has authorized a
+new cutover.
 
 1. In Cloudflare, record the Worker's **current active version id** and the
    commit it was built from. That is the rollback point.
@@ -113,6 +126,21 @@ to `website/*` is also correct and only skips builds for root-document changes.
 - The console is clean and no request leaves the origin.
 - The build log shows the warnings for the placeholder address and the missing
   origin, which is the expected state, not a failure.
+
+## Cutover record — 2026-08-26
+
+- Rollback version before the cutover:
+  `89500e8b-e12d-446c-a772-e30c7d8e6cff` (dashboard prefix `89500e8b`).
+- Build served before the cutover: `kiaquila/web-design` commit
+  `8ca389c8178aa5b1b47fcf4c05a510534e36d68b`.
+- Preview verification build: `kiaquila/misha` commit
+  `fb192a3ee868e9ea083b205ae9819f30149f9969`, version URL prefix
+  `08db692f`.
+- The preview returned the page with a `200`, an unknown route and
+  `/sitemap.xml` with `404`, no canonical link or `og:url`, the placeholder
+  contact address, no console errors and no request to an external origin.
+- Security headers were present, including `style-src 'self'` with no
+  `'unsafe-inline'`.
 
 ## Rollback
 
