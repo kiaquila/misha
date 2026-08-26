@@ -3,8 +3,9 @@
 //
 // This repository holds one static one-page CV for a real, named private
 // person. The things that can actually go wrong here are narrow, so this check
-// is narrow too: nothing that belongs outside Git gets committed, no personal
-// contact address comes back after the migration removed one, no local path or
+// is narrow too: the two policy files that are only policy while they exist are
+// tracked, nothing that belongs outside Git gets committed, no personal contact
+// address comes back after the migration removed one, no local path or
 // credential leaks, and the workflows keep the permissions they were reviewed
 // with. It reads the Git index rather than the working tree, so it sees exactly
 // what a push would publish.
@@ -41,6 +42,18 @@ function readStaged(file) {
     encoding: "buffer",
     maxBuffer: 64 * 1024 * 1024
   });
+}
+
+// 0. Files that must exist. Both of these are policy expressed as a file and
+//    nothing else: delete `.gitattributes` and the harness silently starts
+//    counting as the repository's language, delete `.github/dependabot.yml` and
+//    updates silently stop being proposed. Neither loss breaks a build, so
+//    neither would be noticed. The rest of the harness — the workflow, the
+//    scripts — announces its own absence, and is not listed here.
+const REQUIRED_PATHS = [".gitattributes", ".github/dependabot.yml"];
+
+for (const file of REQUIRED_PATHS) {
+  if (!tracked.includes(file)) fail(file, "is required but is not tracked");
 }
 
 // 1. Directories and files that must never be committed. `.gitignore` states

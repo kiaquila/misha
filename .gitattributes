@@ -1,0 +1,11 @@
+# Keep the repository harness out of GitHub Linguist language statistics, so
+# the language bar describes the website rather than its guardrails. Everything
+# outside `website/` is infrastructure — the automation scripts and their
+# tests — and none of it is product code.
+#
+# The site itself is deliberately absent from this block: `website/` is what
+# the repository is for, and its build and serve scripts are part of it.
+scripts/check-codex-review.mjs    linguist-vendored
+scripts/check-repository.mjs      linguist-vendored
+tests/check-repository.test.mjs   linguist-vendored
+tests/harness.test.mjs            linguist-vendored
