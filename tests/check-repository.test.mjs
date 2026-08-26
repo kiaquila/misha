@@ -313,3 +313,112 @@ test("a Windows personal path is rejected", () => {
   assert.equal(code, 1, output);
   assert.match(output, /personal absolute path/);
 });
+
+const LOCAL_ACTION_WORKFLOW = [
+  "name: CI",
+  "on:",
+  "  pull_request:",
+  "permissions:",
+  "  contents: read",
+  "jobs:",
+  "  build:",
+  "    runs-on: ubuntu-latest",
+  "    steps:",
+  "      - uses: ./.github/actions/setup",
+  ""
+].join("\n");
+
+function composite(nestedUses) {
+  return [
+    "name: Setup",
+    "runs:",
+    "  using: composite",
+    "  steps:",
+    `      - uses: ${nestedUses}`,
+    ""
+  ].join("\n");
+}
+
+test("a local composite action is followed into its own steps", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": LOCAL_ACTION_WORKFLOW,
+    ".github/actions/setup/action.yml": composite("actions/setup-node@main")
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /use a full commit SHA/);
+});
+
+test("a local composite action pinning its own steps passes", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": LOCAL_ACTION_WORKFLOW,
+    ".github/actions/setup/action.yml": composite(
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020"
+    )
+  });
+  assert.equal(code, 0, output);
+});
+
+test("a local action that is not tracked is rejected", () => {
+  const { code, output } = runOn({ ...CLEAN, ".github/workflows/ci.yml": LOCAL_ACTION_WORKFLOW });
+  assert.equal(code, 1, output);
+  assert.match(output, /no tracked `action\.yml`/);
+});
+
+test("composite actions that reference each other terminate", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": LOCAL_ACTION_WORKFLOW,
+    ".github/actions/setup/action.yml": composite("./.github/actions/other"),
+    ".github/actions/other/action.yml": composite("./.github/actions/setup")
+  });
+  assert.equal(code, 0, output);
+});
+
+test("a docker action must be pinned by digest", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      "docker://alpine:3.20"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /pin the image by digest/);
+});
+
+test("text renamed to a binary extension is still scanned", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    "contact.pdf": `Write to ${UNLISTED_ADDRESS}.\n`
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /not on the allowlist/);
+});
+
+test("a real binary is not scanned as text", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    "website/assets/fonts/jost.woff2": Buffer.from([0x77, 0x4f, 0x46, 0x32, 0x00, 0x01, 0x00, 0x00])
+  });
+  assert.equal(code, 0, output);
+});
+
+test("a nested worktree must not be tracked", () => {
+  const { code, output } = runOn({ ...CLEAN, "worktrees/feature/README.md": "hi\n" });
+  assert.equal(code, 1, output);
+  assert.match(output, /nested worktree must not be tracked/);
+});
+
+test("build metadata must not be tracked", () => {
+  const { code, output } = runOn({ ...CLEAN, "tsconfig.tsbuildinfo": "{}\n" });
+  assert.equal(code, 1, output);
+  assert.match(output, /build metadata must not be tracked/);
+});
+
+test("other local tooling state must not be tracked", () => {
+  const { code, output } = runOn({ ...CLEAN, ".omx/state.json": "{}\n" });
+  assert.equal(code, 1, output);
+  assert.match(output, /local tooling state must not be tracked/);
+});

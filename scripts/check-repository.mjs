@@ -53,7 +53,10 @@ const FORBIDDEN_PATHS = [
   [/(^|\/)\.wrangler\//, "local Wrangler state"],
   [/(^|\/)\.next\//, "build output"],
   [/(^|\/)\.omc\//, "local tooling state"],
+  [/(^|\/)\.omx\//, "local tooling state"],
   [/(^|\/)\.claude\//, "local tooling state"],
+  [/(^|\/)worktrees\//, "a nested worktree"],
+  [/(^|\/)tsconfig\.tsbuildinfo$/, "build metadata"],
   [/(^|\/)\.DS_Store$/, "macOS metadata"],
   [/(^|\/)\.env($|\.)/, "environment file"],
   [/\.(key|pem|p12|pfx|session)$/, "credential or session file"]
@@ -97,13 +100,11 @@ const PERSONAL_PATHS = [
   new RegExp(String.raw`\\\\[A-Za-z0-9._-]+\\(?:Users|home)\\[A-Za-z0-9._-]+`, "i")
 ];
 
-const BINARY_EXTENSIONS = /\.(woff2?|ttf|otf|eot|png|jpe?g|gif|webp|avif|ico|pdf|zip|gz)$/i;
-
 for (const file of tracked) {
-  if (BINARY_EXTENSIONS.test(file)) continue;
-
+  // Binary is decided by the bytes, not by the extension, so renaming a text
+  // file to `contact.pdf` does not exempt it from the rules below.
   const blob = readStaged(file);
-  if (blob.includes(0)) continue; // binary
+  if (blob.includes(0)) continue;
   const text = blob.toString("utf8");
 
   for (const address of text.match(EMAIL) || []) {
@@ -145,13 +146,59 @@ function permissionGrants(permissions) {
   }));
 }
 
-function stepUses(job) {
+function stepUses(node) {
   const uses = [];
-  if (typeof job?.uses === "string") uses.push(job.uses); // reusable workflow
-  for (const step of Array.isArray(job?.steps) ? job.steps : []) {
+  if (typeof node?.uses === "string") uses.push(node.uses); // reusable workflow
+  for (const step of Array.isArray(node?.steps) ? node.steps : []) {
     if (typeof step?.uses === "string") uses.push(step.uses);
   }
   return uses;
+}
+
+const trackedSet = new Set(tracked);
+
+// A `./` reference runs an action from this repository, so its own bytes are
+// reviewed here — but the steps inside it are not, and a composite action is
+// free to call a mutable third-party one. Follow it.
+function checkUses(file, where, uses, seen) {
+  if (uses.startsWith("./")) {
+    const directory = uses.replace(/^\.\//, "").replace(/\/$/, "");
+    const manifest = [`${directory}/action.yml`, `${directory}/action.yaml`].find((candidate) =>
+      trackedSet.has(candidate)
+    );
+    if (!manifest) {
+      fail(file, `${where} uses \`${uses}\`, but no tracked \`action.yml\` is there`);
+      return;
+    }
+    if (seen.has(manifest)) return; // a cycle cannot introduce a new action
+    seen.add(manifest);
+
+    let action;
+    try {
+      action = YAML.parse(readStaged(manifest).toString("utf8"));
+    } catch (error) {
+      fail(manifest, `is not valid YAML: ${error.message}`);
+      return;
+    }
+    for (const nested of stepUses(action?.runs)) {
+      checkUses(manifest, `the composite action reached from ${file}`, nested, seen);
+    }
+    return;
+  }
+
+  if (uses.startsWith("docker://")) {
+    if (!/@sha256:[0-9a-f]{64}$/.test(uses)) {
+      fail(file, `${where} uses \`${uses}\`; pin the image by digest`);
+    }
+    return;
+  }
+
+  const ref = uses.includes("@") ? uses.slice(uses.lastIndexOf("@") + 1) : null;
+  if (!ref) {
+    fail(file, `${where} uses \`${uses}\` with no ref; pin a full commit SHA`);
+  } else if (!/^[0-9a-f]{40}$/.test(ref)) {
+    fail(file, `${where} pins \`${uses}\` to \`${ref}\`; use a full commit SHA`);
+  }
 }
 
 function triggerNames(on) {
@@ -207,13 +254,7 @@ for (const file of tracked.filter((name) => /^\.github\/workflows\/.+\.ya?ml$/.t
 
   for (const [name, job] of Object.entries(jobs)) {
     for (const uses of stepUses(job)) {
-      if (uses.startsWith("./")) continue; // an action from this repository
-      const ref = uses.includes("@") ? uses.slice(uses.lastIndexOf("@") + 1) : null;
-      if (!ref) {
-        fail(file, `job \`${name}\` uses \`${uses}\` with no ref; pin a full commit SHA`);
-      } else if (!/^[0-9a-f]{40}$/.test(ref)) {
-        fail(file, `job \`${name}\` pins \`${uses}\` to \`${ref}\`; use a full commit SHA`);
-      }
+      checkUses(file, `job \`${name}\``, uses, new Set());
     }
   }
 }
