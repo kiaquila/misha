@@ -162,7 +162,19 @@ const trackedSet = new Set(tracked);
 // free to call a mutable third-party one. Follow it.
 function checkUses(file, where, uses, seen) {
   if (uses.startsWith("./")) {
-    const directory = uses.replace(/^\.\//, "").replace(/\/$/, "");
+    const target = uses.replace(/^\.\//, "").replace(/\/$/, "");
+
+    // A job-level `uses` may name a reusable workflow file rather than an
+    // action directory. That file lives under `.github/workflows/`, so the loop
+    // above already holds it to these same rules; it only has to exist.
+    if (/\.ya?ml$/.test(target)) {
+      if (!trackedSet.has(target)) {
+        fail(file, `${where} uses \`${uses}\`, which is not tracked`);
+      }
+      return;
+    }
+
+    const directory = target;
     const manifest = [`${directory}/action.yml`, `${directory}/action.yaml`].find((candidate) =>
       trackedSet.has(candidate)
     );

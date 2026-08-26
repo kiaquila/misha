@@ -422,3 +422,40 @@ test("other local tooling state must not be tracked", () => {
   assert.equal(code, 1, output);
   assert.match(output, /local tooling state must not be tracked/);
 });
+
+test("a local reusable workflow is not mistaken for an action directory", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/caller.yml": [
+      "name: Caller",
+      "on:",
+      "  pull_request:",
+      "permissions:",
+      "  contents: read",
+      "jobs:",
+      "  call:",
+      "    uses: ./.github/workflows/ci.yml",
+      ""
+    ].join("\n")
+  });
+  assert.equal(code, 0, output);
+});
+
+test("a local reusable workflow that does not exist is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/caller.yml": [
+      "name: Caller",
+      "on:",
+      "  pull_request:",
+      "permissions:",
+      "  contents: read",
+      "jobs:",
+      "  call:",
+      "    uses: ./.github/workflows/missing.yml",
+      ""
+    ].join("\n")
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /which is not tracked/);
+});
