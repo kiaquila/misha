@@ -10,6 +10,7 @@
 // what a push would publish.
 
 import { execFileSync } from "node:child_process";
+import YAML from "yaml";
 
 const root = process.cwd();
 const problems = [];
@@ -120,74 +121,99 @@ for (const file of tracked) {
   }
 }
 
-// 3. Workflow permissions. Every workflow here runs on events a pull request
-//    can trigger, so an over-broad grant is the one CI mistake that would
-//    matter: a job holding a write token beside proposed code can be made to
-//    use it. `write-all` is the loud version, but `contents: write` on a single
-//    scope hands over the same token, so both are rejected.
+// 3. Workflows. These are parsed as YAML rather than read line by line,
+//    because the invariants below have to hold for every spelling the format
+//    allows — `on: [pull_request]`, `"uses": …`, an inline permissions map —
+//    and a regex that only recognises the tidy form claims an invariant it
+//    does not have.
+//
+//    The permission rule is blunt on purpose: **no workflow here may grant a
+//    write token, on any trigger.** Nothing this repository does needs one —
+//    the site is built and served by Cloudflare's own Git integration, not by
+//    Actions — so there is no case to weigh trigger by trigger, and no reason
+//    for a proposed workflow to be able to write to the repository before
+//    anyone has reviewed it. If a workflow ever genuinely needs write access,
+//    loosening this is the reviewable change that grants it.
 
-// A line-oriented reader for the `permissions:` maps, which is all this needs:
-// it yields every scope grant, whether written as a block, an inline map, or a
-// bare `read-all` / `write-all` shorthand.
-function permissionGrants(text) {
-  const lines = text.split(/\r?\n/);
-  const grants = [];
+function permissionGrants(permissions) {
+  if (permissions === null || permissions === undefined) return [];
+  if (typeof permissions === "string") return [{ scope: "*", value: permissions }];
+  if (typeof permissions !== "object") return [];
+  return Object.entries(permissions).map(([scope, value]) => ({
+    scope,
+    value: String(value)
+  }));
+}
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const header = lines[index].match(/^(\s*)permissions:\s*(.*)$/);
-    if (!header) continue;
-    const [, indent, inline] = header;
-
-    if (inline.trim()) {
-      const braced = inline.trim().replace(/^\{|\}$/g, "");
-      if (braced === inline.trim() && !inline.includes(":")) {
-        grants.push({ scope: "*", value: inline.trim() });
-        continue;
-      }
-      for (const entry of braced.split(",")) {
-        const [scope, value] = entry.split(":").map((part) => part?.trim());
-        if (scope && value) grants.push({ scope, value });
-      }
-      continue;
-    }
-
-    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
-      const line = lines[cursor];
-      if (!line.trim() || line.trim().startsWith("#")) continue;
-      const depth = line.match(/^(\s*)/)[1].length;
-      if (depth <= indent.length) break;
-      const entry = line.trim().match(/^([\w-]+):\s*(\S+)/);
-      if (entry) grants.push({ scope: entry[1], value: entry[2] });
-      else grants.push({ scope: "*", value: line.trim() });
-    }
+function stepUses(job) {
+  const uses = [];
+  if (typeof job?.uses === "string") uses.push(job.uses); // reusable workflow
+  for (const step of Array.isArray(job?.steps) ? job.steps : []) {
+    if (typeof step?.uses === "string") uses.push(step.uses);
   }
-  return grants;
+  return uses;
+}
+
+function triggerNames(on) {
+  if (typeof on === "string") return [on];
+  if (Array.isArray(on)) return on.map(String);
+  if (on && typeof on === "object") return Object.keys(on);
+  return [];
 }
 
 for (const file of tracked.filter((name) => /^\.github\/workflows\/.+\.ya?ml$/.test(name))) {
-  const text = readStaged(file).toString("utf8");
-
-  if (!/^permissions:/m.test(text)) {
-    fail(file, "must declare top-level `permissions:`");
+  let workflow;
+  try {
+    workflow = YAML.parse(readStaged(file).toString("utf8"));
+  } catch (error) {
+    fail(file, `is not valid YAML: ${error.message}`);
+    continue;
   }
-  if (/^\s*pull_request_target:/m.test(text)) {
+  if (!workflow || typeof workflow !== "object") {
+    fail(file, "does not parse to a workflow mapping");
+    continue;
+  }
+
+  // YAML 1.1 readers fold a bare `on` key to the boolean true; this one does
+  // not, but accepting both costs nothing and removes the question.
+  const triggers = triggerNames(workflow.on ?? workflow[true]);
+  if (triggers.length === 0) {
+    fail(file, "declares no trigger");
+  }
+  if (triggers.includes("pull_request_target")) {
     fail(file, "must not use `pull_request_target`");
   }
 
-  // Anything a pull request can start runs beside proposed code.
-  const untrusted = /^\s*pull_request:/m.test(text) || /^\s*pull_request_target:/m.test(text);
-  for (const { scope, value } of permissionGrants(text)) {
-    const grant = value.replace(/^["']|["'],?$/g, "").toLowerCase();
-    if (grant === "write-all") {
-      fail(file, "must not grant `write-all`");
-    } else if (grant === "write" && untrusted) {
-      fail(file, `grants \`${scope}: write\` on a pull-request-triggered workflow`);
+  if (!("permissions" in workflow)) {
+    fail(file, "must declare top-level `permissions:`");
+  }
+
+  const jobs = workflow.jobs && typeof workflow.jobs === "object" ? workflow.jobs : {};
+  const scopes = [
+    ["workflow", workflow.permissions],
+    ...Object.entries(jobs).map(([name, job]) => [`job \`${name}\``, job?.permissions])
+  ];
+
+  for (const [where, permissions] of scopes) {
+    for (const { scope, value } of permissionGrants(permissions)) {
+      const grant = value.trim().toLowerCase();
+      if (grant === "write-all") {
+        fail(file, `grants \`write-all\` at ${where}`);
+      } else if (grant === "write") {
+        fail(file, `grants \`${scope}: write\` at ${where}`);
+      }
     }
   }
 
-  for (const [, action, ref] of text.matchAll(/uses:\s*([\w.-]+\/[\w.\/-]+)@(\S+)/g)) {
-    if (!/^[0-9a-f]{40}$/.test(ref)) {
-      fail(file, `pins ${action} to \`${ref}\`; use a full commit SHA`);
+  for (const [name, job] of Object.entries(jobs)) {
+    for (const uses of stepUses(job)) {
+      if (uses.startsWith("./")) continue; // an action from this repository
+      const ref = uses.includes("@") ? uses.slice(uses.lastIndexOf("@") + 1) : null;
+      if (!ref) {
+        fail(file, `job \`${name}\` uses \`${uses}\` with no ref; pin a full commit SHA`);
+      } else if (!/^[0-9a-f]{40}$/.test(ref)) {
+        fail(file, `job \`${name}\` pins \`${uses}\` to \`${ref}\`; use a full commit SHA`);
+      }
     }
   }
 }

@@ -47,6 +47,9 @@ jobs:
         with:
           node-version: "22.18.0"
 
+      - name: Install
+        run: npm ci
+
       - name: Check the repository
         run: node scripts/check-repository.mjs
 

@@ -16,10 +16,13 @@ the way you would change any other file — in a reviewed pull request.
 of the Git index rather than the working tree, so it sees exactly what a push
 would publish, and enforces four things: nothing that belongs outside Git is
 tracked, no contact address beyond the published placeholder appears anywhere,
-no credential or personal path leaks, and the workflow keeps its SHA-pinned
-actions and never grants a write token to anything a pull request can start.
-Extend it when this project gains a rule worth enforcing; do not grow it into a
-general-purpose policy engine.
+no credential or personal path leaks, and the workflows parse as YAML with every
+action pinned to a full commit SHA and **no write token granted anywhere**.
+Nothing here needs one — Cloudflare builds the site from its own Git
+integration, not from Actions — so if a workflow ever does, loosening that rule
+is the reviewable change that grants it. Extend the check when this project
+gains a rule worth enforcing; do not grow it into a general-purpose policy
+engine.
 
 ## Identity
 

@@ -22,6 +22,16 @@ updates:
           - "minor"
           - "patch"
 
+  # The repository check's YAML parser.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+
   # The workflow is this repository's own file, so an action-pin bump is a
   # normal reviewable pull request here.
   - package-ecosystem: "github-actions"

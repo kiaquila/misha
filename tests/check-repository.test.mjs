@@ -124,10 +124,82 @@ test("a workflow without top-level permissions is rejected", () => {
 test("a workflow granting write-all is rejected", () => {
   const { code, output } = runOn({
     ...CLEAN,
-    ".github/workflows/ci.yml": "name: CI\non:\n  pull_request:\npermissions:\n  write-all\njobs: {}\n"
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions: write-all"
+    )
   });
   assert.equal(code, 1, output);
-  assert.match(output, /write-all/);
+  assert.match(output, /`write-all` at workflow/);
+});
+
+test("a granular write grant is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions:\n  contents: write"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /`contents: write` at workflow/);
+});
+
+test("a job-level write grant is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "    runs-on: ubuntu-latest",
+      "    permissions:\n      pull-requests: write\n    runs-on: ubuntu-latest"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /`pull-requests: write` at job `build`/);
+});
+
+test("an inline write grant is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions: { contents: write }"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /`contents: write` at workflow/);
+});
+
+test("a write grant is rejected on a push-only workflow too", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/release.yml": [
+      "name: Release",
+      "on:",
+      "  push:",
+      "    branches: [main]",
+      "permissions:",
+      "  contents: write",
+      "jobs:",
+      "  release:",
+      "    runs-on: ubuntu-latest",
+      "    steps:",
+      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      ""
+    ].join("\n")
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /`contents: write` at workflow/);
+});
+
+test("read-all stays acceptable", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "permissions:\n  contents: read",
+      "permissions: read-all"
+    )
+  });
+  assert.equal(code, 0, output);
 });
 
 test("pull_request_target is rejected", () => {
@@ -135,6 +207,16 @@ test("pull_request_target is rejected", () => {
     ...CLEAN,
     ".github/workflows/ci.yml":
       "name: CI\non:\n  pull_request_target:\npermissions:\n  contents: read\njobs: {}\n"
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /pull_request_target/);
+});
+
+test("pull_request_target is rejected in the flow-sequence spelling", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml":
+      "name: CI\non: [pull_request_target]\npermissions:\n  contents: read\njobs: {}\n"
   });
   assert.equal(code, 1, output);
   assert.match(output, /pull_request_target/);
@@ -150,6 +232,58 @@ test("a floating action tag is rejected", () => {
   });
   assert.equal(code, 1, output);
   assert.match(output, /use a full commit SHA/);
+});
+
+test("a quoted uses key cannot dodge the pin rule", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      '      - "uses": actions/checkout@main'
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /use a full commit SHA/);
+});
+
+test("an action with no ref at all is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      "actions/checkout"
+    )
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /no ref/);
+});
+
+test("a reusable workflow must be pinned too", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": [
+      "name: CI",
+      "on:",
+      "  pull_request:",
+      "permissions:",
+      "  contents: read",
+      "jobs:",
+      "  call:",
+      "    uses: kiaquila/shared/.github/workflows/x.yml@main",
+      ""
+    ].join("\n")
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /use a full commit SHA/);
+});
+
+test("a workflow that is not valid YAML is rejected", () => {
+  const { code, output } = runOn({
+    ...CLEAN,
+    ".github/workflows/ci.yml": "name: CI\non:\n  pull_request:\n   - [oops\n"
+  });
+  assert.equal(code, 1, output);
+  assert.match(output, /not valid YAML|does not parse/);
 });
 
 test("what was staged is what gets checked, not the working tree", () => {
@@ -178,71 +312,4 @@ test("a Windows personal path is rejected", () => {
   });
   assert.equal(code, 1, output);
   assert.match(output, /personal absolute path/);
-});
-
-test("a granular write grant on a pull-request workflow is rejected", () => {
-  const { code, output } = runOn({
-    ...CLEAN,
-    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
-      "permissions:\n  contents: read",
-      "permissions:\n  contents: write"
-    )
-  });
-  assert.equal(code, 1, output);
-  assert.match(output, /contents: write.*pull-request-triggered/);
-});
-
-test("a job-level write grant on a pull-request workflow is rejected", () => {
-  const { code, output } = runOn({
-    ...CLEAN,
-    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
-      "    runs-on: ubuntu-latest",
-      "    permissions:\n      pull-requests: write\n    runs-on: ubuntu-latest"
-    )
-  });
-  assert.equal(code, 1, output);
-  assert.match(output, /pull-requests: write.*pull-request-triggered/);
-});
-
-test("an inline write grant is rejected", () => {
-  const { code, output } = runOn({
-    ...CLEAN,
-    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
-      "permissions:\n  contents: read",
-      "permissions: { contents: write }"
-    )
-  });
-  assert.equal(code, 1, output);
-  assert.match(output, /contents: write.*pull-request-triggered/);
-});
-
-test("a write grant on a workflow no pull request can start is allowed", () => {
-  const { code, output } = runOn({
-    ...CLEAN,
-    ".github/workflows/release.yml": [
-      "name: Release",
-      "on:",
-      "  workflow_dispatch:",
-      "permissions:",
-      "  contents: write",
-      "jobs:",
-      "  release:",
-      "    runs-on: ubuntu-latest",
-      "    steps:",
-      "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
-      ""
-    ].join("\n")
-  });
-  assert.equal(code, 0, output);
-});
-
-test("read-all stays acceptable", () => {
-  const { code, output } = runOn({
-    ...CLEAN,
-    ".github/workflows/ci.yml": CLEAN[".github/workflows/ci.yml"].replace(
-      "permissions:\n  contents: read",
-      "permissions: read-all"
-    )
-  });
-  assert.equal(code, 0, output);
 });
