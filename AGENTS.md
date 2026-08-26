@@ -45,6 +45,14 @@ exists, and losing either breaks nothing that anyone would notice:
   not this file** — they are enabled in the repository and this file only
   schedules routine version bumps.
 
+Both files are checked the way the checker checks everything else: **out of the
+Git index, not the working tree.** Staging a broken policy and then repairing
+only the working copy would otherwise leave `npm test` green while the next push
+published the broken bytes, and a policy file verified in the one state that
+never gets published is not verified at all. That is why `tests/harness.test.mjs`
+reads through `git cat-file blob :<path>` and asks `git check-attr` for
+`--cached`.
+
 The OSV scan runs as two steps out of one pinned release: the scanner writes
 JSON and is allowed to fail, then the reporter turns that JSON into pull-request
 annotations and fails the job on a finding. The scanner must keep

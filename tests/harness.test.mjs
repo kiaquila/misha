@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
@@ -9,16 +8,30 @@ import YAML from "yaml";
 // These tests read this repository's own harness files rather than a fixture:
 // the policies below are only policies because *these* bytes say so, and a
 // fixture would assert the shape of a copy nobody ships.
+//
+// They read them out of the Git index, for the same reason
+// `scripts/check-repository.mjs` does. Staging a broken policy and then
+// repairing only the working-tree copy would otherwise leave every advertised
+// check green while the next push published the broken bytes — and a policy
+// file that is checked in the one state that never gets published is not
+// checked at all. `git check-attr` is asked for `--cached` on the same grounds:
+// the attributes that matter are the ones in the staged `.gitattributes`.
 const root = fileURLToPath(new URL("..", import.meta.url));
-const read = (file) => readFileSync(path.join(root, file), "utf8");
+
+const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
+
+function read(file) {
+  try {
+    return git("cat-file", "blob", `:${file}`);
+  } catch {
+    assert.fail(`${file} is not staged, so there is nothing to publish and nothing to check`);
+  }
+}
+
 const parse = (file) => YAML.parse(read(file));
 
 test("the harness stays out of GitHub language statistics", () => {
-  const attribute = (file) =>
-    execFileSync("git", ["check-attr", "linguist-vendored", "--", file], {
-      cwd: root,
-      encoding: "utf8"
-    }).trim();
+  const attribute = (file) => git("check-attr", "--cached", "linguist-vendored", "--", file).trim();
 
   for (const harness of [
     "scripts/check-codex-review.mjs",
@@ -85,6 +98,7 @@ test("github-actions carries only the default cooldown", () => {
 });
 
 test("every npm entry points at a directory that really has a manifest", () => {
+  const staged = new Set(git("ls-files", "-z").split("\0").filter(Boolean));
   const npm = parse(".github/dependabot.yml").updates.filter(
     (entry) => entry["package-ecosystem"] === "npm"
   );
@@ -94,12 +108,12 @@ test("every npm entry points at a directory that really has a manifest", () => {
   assert.equal(new Set(directories).size, directories.length, "a directory is listed twice");
 
   for (const directory of directories) {
-    const resolved = path.join(root, directory);
-    assert.ok(existsSync(path.join(resolved, "package.json")), `${directory} has no package.json`);
-    assert.ok(
-      existsSync(path.join(resolved, "package-lock.json")),
-      `${directory} has no lockfile`
-    );
+    // Tracked, not merely present: an untracked manifest is one Dependabot
+    // cannot read, however well it works on the machine that wrote it.
+    for (const manifest of ["package.json", "package-lock.json"]) {
+      const file = path.posix.join(directory, manifest).replace(/^\//, "");
+      assert.ok(staged.has(file), `${directory} has no tracked ${manifest}`);
+    }
   }
 });
 
