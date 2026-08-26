@@ -67,37 +67,66 @@ the only ornament. Everything follows from that.
 - Hierarchy is scale, weight, tracking and hairlines. There are no cards, no
   shadows, no rounded corners and no icons.
 
+## Repository harness
+
+Everything outside `website/` is this repository's own: one CI workflow, one
+repository safety check with its tests, and the documents. Its only dependency
+is a YAML parser, so the workflow checks read structure rather than guessing at
+it with regular expressions. There is no shared
+baseline to pin, no automatic sync, and no file here owned by another
+repository — a change to any of it is a normal reviewable pull request.
+
+How this repository was extracted from the monorepository, and what was proved
+about it, is recorded in
+[`docs/migration/source-provenance.md`](./docs/migration/source-provenance.md).
+
 ## Checks
 
 From the repository root:
 
 ```bash
-node scripts/check-repository.mjs
+npm run check
+```
+
+That is the repository safety check followed by the website's build and test
+suite — the same two things CI runs, plus an OSV scan and a Codex review of the
+pull request head. `npm test` covers the safety check itself.
+
+To run only one half:
+
+```bash
+npm run check:repository
 ```
 
 ```bash
-npm --prefix misha/website run check
+npm --prefix website run check
 ```
 
 Local preview:
 
 ```bash
-npm --prefix misha/website run dev
+npm --prefix website run dev
 ```
 
 ## Open items
 
 - **The contact address is a placeholder.** `links.email` is
-  `example@e-mail.com`, and the build says so on every run. The CV carries
-  `***REMOVED***`; publishing it is the owner's call, so the page
-  waits for that decision rather than making it for him.
+  `example@e-mail.com`, and the build says so on every run. His CV carries a
+  real address, which is deliberately not written down anywhere in this
+  repository; publishing it is the owner's call, so the page waits for that
+  decision rather than making it for him.
 - **No domain yet.** `SITE_ORIGIN` is unset, so the build ships no canonical
   URL, no `og:url` and no sitemap, and prints a warning on every run. Set it
   once the page has a home, then rebuild.
-- **Staged, not published.** The Cloudflare Worker `misha` serves
-  [misha.ks-design.workers.dev](https://misha.ks-design.workers.dev) from
-  `main`, and each pull request gets its own preview. There is still no
-  production target and no custom domain.
+- **Staged, not published — and not building right now.** The Cloudflare
+  Worker `misha` serves
+  [misha.ks-design.workers.dev](https://misha.ks-design.workers.dev), but its
+  Git integration is switched off for the moment, so neither this repository
+  nor the old one is building it and the stage serves whatever was deployed
+  last. There is still no production target and no custom domain. The recorded
+  settings, the cutover, its verification and its rollback are written down in
+  [`docs/stage-hosting.md`](./docs/stage-hosting.md) and need the account
+  owner.
 - **The CV itself is thin on numbers.** Every achievement on the page is
   qualitative — "refactoring of the payment processing system" — because that
   is what the source CV says. Scale, load, latency and money are the single

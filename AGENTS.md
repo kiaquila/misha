@@ -5,6 +5,25 @@ Original one-page CV portfolio for Mikhail Orlov, senior backend developer.
 role is fixed to backend developer with no role switcher. Read
 [`README.md`](./README.md) first for the verified facts and the open items.
 
+## Repository harness
+
+Everything outside `website/` belongs to this repository: one CI workflow, the
+repository safety check in [`scripts/`](./scripts/) with its tests, and these
+documents. Nothing here is owned or synced by another repository, so change it
+the way you would change any other file — in a reviewed pull request.
+
+`scripts/check-repository.mjs` is deliberately small. It reads staged blobs out
+of the Git index rather than the working tree, so it sees exactly what a push
+would publish, and enforces four things: nothing that belongs outside Git is
+tracked, no contact address beyond the published placeholder appears anywhere,
+no credential or personal path leaks, and the workflows parse as YAML with every
+action pinned to a full commit SHA and **no write token granted anywhere**.
+Nothing here needs one — Cloudflare builds the site from its own Git
+integration, not from Actions — so if a workflow ever does, loosening that rule
+is the reviewable change that grants it. Extend the check when this project
+gains a rule worth enforcing; do not grow it into a general-purpose policy
+engine.
+
 ## Identity
 
 The reference is the WOVE page by Polyera: a flat light-grey field, charcoal
@@ -125,11 +144,20 @@ from it.
 
 The stage is a Cloudflare Worker named `misha`, served from `dist/` by Workers
 Static Assets, with `worker/index.ts` attaching security headers. Its stable
-URL is `https://misha.ks-design.workers.dev` and every pull request gets its own
-versioned preview. Configuration lives in `website/wrangler.json` and in
-`stageProjects` in the repository's `.repo-guard.json`; the one-time Cloudflare
-connection is documented in [`docs/stage-hosting.md`](../docs/stage-hosting.md)
-and only the account owner can perform it.
+URL is `https://misha.ks-design.workers.dev` and, while the Git integration is
+connected, every pull request gets its own versioned preview. Configuration
+lives in
+[`website/wrangler.json`](./website/wrangler.json) — Worker name, pinned
+`compatibility_date`, `workers_dev: true` and `preview_urls: true`. The Git
+connection, the build settings, the cutover and the rollback are documented in
+[`docs/stage-hosting.md`](./docs/stage-hosting.md) and only the account owner
+can perform them.
+
+**Nothing deploys from here yet.** The Cloudflare Git integration is switched
+off for the moment, so no push to this repository builds the Worker. Do not
+connect Cloudflare or deploy without the account owner; until the documented
+cutover runs, the `misha/` path in `kiaquila/web-design` must stay in place as
+the rollback route.
 
 - **The stage is public.** It carries a real person's name, employers and
   career history. The contact address stays the placeholder until the owner
@@ -147,11 +175,11 @@ and only the account owner can perform it.
 From the repository root:
 
 ```bash
-node scripts/check-repository.mjs
+npm run check
 ```
 
 ```bash
-npm --prefix misha/website run check
+npm test
 ```
 
 Visually: 320px, 360px and 1440px, keyboard focus, the scroll-spy in the
