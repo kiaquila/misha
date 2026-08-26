@@ -183,14 +183,15 @@ a real address, and that publishing it is his decision, is still stated.
 - `website/` was not touched at all: no source file, asset, test or
   `wrangler.json` value differs from the source commit.
 
-## Cloudflare — prepared, not switched
+## Cloudflare — switched after migration
 
-Nothing in Cloudflare was changed during this migration, and the Git
-integration is switched off at the moment, so neither repository is building the
-Worker. The recorded settings, the verification and the rollback-safe cutover
-order are in [`../stage-hosting.md`](../stage-hosting.md). Until the cutover
-happens, the source directory in the monorepository must stay in place, and the
-two repositories must never both deploy this Worker.
+The migration itself did not change Cloudflare. After the migration pull
+request was merged and `main` passed CI, the Worker was connected to
+`kiaquila/misha` on 2026-08-26. The old `kiaquila/web-design` connection was
+confirmed inactive before the new one was enabled. The live settings,
+verification and rollback point are recorded in
+[`../stage-hosting.md`](../stage-hosting.md). The source directory remains in
+the monorepository as the full rollback route.
 
 ## What this repository ended up carrying
 
