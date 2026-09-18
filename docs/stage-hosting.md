@@ -41,7 +41,8 @@ without explicit authorization.
 
 Cloudflare Workers Builds has been connected to `kiaquila/misha` since
 2026-08-26. The old `kiaquila/web-design` Git connection was confirmed inactive
-before this connection was enabled.
+before this connection was enabled. GitHub reports `kiaquila/misha` as a public
+repository.
 
 | Setting | Live value |
 | --- | --- |
@@ -56,10 +57,16 @@ before this connection was enabled.
 | Included build watch path | default |
 | Build token | `misha build token` |
 
-### Previous connection for full rollback
+The connection was re-verified on 2026-09-18 at `main`
+`f1d75d6e05d7333a345c0a9f770194966aef47d7`: the
+[`Workers Builds: misha` check](https://github.com/kiaquila/misha/runs/105310051150)
+completed successfully.
+
+### Retired previous connection
 
 The Worker was created while this project lived in the `kiaquila/web-design`
-monorepository. These settings are retained solely for the full rollback path.
+monorepository. These settings are retained as historical evidence of the old
+connection, not as a recoverable Git source.
 
 | Setting | Previous value |
 | --- | --- |
@@ -72,22 +79,24 @@ monorepository. These settings are retained solely for the full rollback path.
 | Non-production deploy command | `npm run stage:preview` |
 | Included build watch path | `misha/*` |
 
-The source path `misha/` is still present in `kiaquila/web-design`, so that
-connection can be restored as long as the path stays in place.
+The `misha/` path was removed from `kiaquila/web-design` `main` on 2026-09-17
+in commit `cfae7bb8236435579992ac265aead7d3b9d63a57`. That repository is now
+private, and its current `.repo-guard.json` has no `misha` stage project. The
+old connection must not be used as a rollback route.
 
-## Cutover to this repository
+## Reconnecting this repository
 
 Only the account owner can do this: the Git connection and the build
-credentials live in Cloudflare. Do not repeat the procedure unless this
-repository's checks are green on `main` and the account owner has authorized a
-new cutover.
+credentials live in Cloudflare. Use this procedure only if the current
+`kiaquila/misha` connection must be rebuilt, the checks are green on `main` and
+the account owner has authorized the work.
 
 1. In Cloudflare, record the Worker's **current active version id** and the
    commit it was built from. That is the rollback point.
-2. Authorize the Cloudflare GitHub App for `kiaquila/misha`. The repository is
-   private, so the installation has to be granted access to it explicitly.
-3. **Confirm no Git connection to `kiaquila/web-design` is active**, and remove
-   it if one has been restored in the meantime, before connecting the new one.
+2. Confirm that the Cloudflare GitHub App installation can access
+   `kiaquila/misha`. The repository is public, but the installation must still
+   be able to select it as the build source.
+3. **Confirm no other Git connection is active** before reconnecting this one.
    Two repositories must never be able to build the same Worker at the same
    time.
 4. Connect `kiaquila/misha` to the same Worker — do not create a second Worker,
@@ -111,11 +120,7 @@ new cutover.
 | Non-production deploy command | `npm run stage:preview` |
 | Included build watch path | default — this repository holds one project |
 
-The monorepository watch path `misha/*` matches nothing here and would stop
-every build. Clearing it back to the default is what replaces it; narrowing it
-to `website/*` is also correct and only skips builds for root-document changes.
-
-## Verify after cutover
+## Verify after reconnecting
 
 - `https://misha.ks-design.workers.dev` returns the page, and an unknown path
   returns the 404 page.
@@ -129,7 +134,7 @@ to `website/*` is also correct and only skips builds for root-document changes.
 
 ## Cutover record — 2026-08-26
 
-- Rollback version before the cutover:
+- Historical rollback version recorded before the cutover:
   `89500e8b-e12d-446c-a772-e30c7d8e6cff` (dashboard prefix `89500e8b`).
 - Build served before the cutover: `kiaquila/web-design` commit
   `8ca389c8178aa5b1b47fcf4c05a510534e36d68b`.
@@ -144,19 +149,18 @@ to `website/*` is also correct and only skips builds for root-document changes.
 
 ## Rollback
 
-- **Fastest:** in Cloudflare, roll the Worker back to the version id recorded in
-  step 1. That restores the previously served build without any Git change.
-- **Full:** disconnect `kiaquila/misha`, reconnect `kiaquila/web-design` with
-  root `misha/website` and the `misha/*` watch path, and rebuild from `main`.
-  This works for as long as `misha/` remains in that repository, which is why
-  the source path must not be deleted until this stage has been verified from
-  here.
+Cloudflare Worker versions are the rollback mechanism. Each deployment records
+the version or versions serving traffic; a dashboard rollback creates a new
+deployment that sends traffic to the selected previous version.
 
-## After a verified cutover
+1. Before a risky change, record the active version id and the source commit.
+2. In **Workers & Pages → misha → Deployments**, choose the last known-good
+   version and select **Rollback**. Cloudflare documents the same flow in
+   [Rollbacks](https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/).
+3. Re-run the verification checklist above against the stable URL.
 
-`kiaquila/web-design` still lists `misha` in `stageProjects` in its
-`.repo-guard.json`, which is what mirrors stable builds into that repository's
-`misha / stage` GitHub environment. Once this repository owns the Worker, that
-entry describes a stage the monorepository no longer builds. Remove it there in
-its own pull request, following that repository's documented procedure for
-retiring a stage — and keep the project source and history in place.
+The version recorded in the 2026-08-26 cutover record is evidence of that
+event, not a promise that it remains among Cloudflare's available versions or
+the correct target for a future incident. Do not disconnect `kiaquila/misha`
+or reconnect `kiaquila/web-design` as part of rollback; the old repository no
+longer contains the project on `main`.

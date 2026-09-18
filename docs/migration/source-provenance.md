@@ -124,13 +124,14 @@ Anyone can reproduce that: take `misha/README.md` at
 `3b99cb3d23328013c28eb73ab8525b13b6992d9e`, replace the quoted address with
 `***REMOVED***`, and the blob hashes to `b516d879`.
 
-### Still outstanding
+### Historical disclosure
 
-`kiaquila/web-design` is a **public** repository and still carries the address
-in `misha/README.md` on `main` and in its history. Purging it here does not
-undo that, and the address should be treated as already disclosed. Cleaning up
-the upstream repository is a separate, deliberate decision that has not been
-taken.
+`kiaquila/web-design` is private as of 2026-09-18, and commit
+`cfae7bb8236435579992ac265aead7d3b9d63a57` removed `misha/` from its current
+`main`. The address remains in reachable history from the period when that
+repository was public, so the removal does not undo its prior exposure and the
+address should still be treated as already disclosed. There is no remaining
+current-tree cleanup for this repository to track.
 
 ## Commit map
 
@@ -190,8 +191,10 @@ request was merged and `main` passed CI, the Worker was connected to
 `kiaquila/misha` on 2026-08-26. The old `kiaquila/web-design` connection was
 confirmed inactive before the new one was enabled. The live settings,
 verification and rollback point are recorded in
-[`../stage-hosting.md`](../stage-hosting.md). The source directory remains in
-the monorepository as the full rollback route.
+[`../stage-hosting.md`](../stage-hosting.md). The source directory was removed
+from the monorepository's `main` on 2026-09-17; it remains historical provenance
+only and is not a deployment rollback route. Current rollback uses Cloudflare
+Worker versions.
 
 ## What this repository ended up carrying
 
