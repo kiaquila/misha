@@ -127,8 +127,9 @@ npm --prefix website run dev
   [misha.ks-design.workers.dev](https://misha.ks-design.workers.dev) and builds
   this repository: `main` updates the stable stage and other branches receive
   isolated preview URLs. There is still no production target and no custom
-  domain. The live settings, verification record and rollback are written down
-  in [`docs/stage-hosting.md`](./docs/stage-hosting.md).
+  domain. The live settings, dated verification record and version-based
+  rollback are written down in
+  [`docs/stage-hosting.md`](./docs/stage-hosting.md).
 - **The CV itself is thin on numbers.** Every achievement on the page is
   qualitative — "refactoring of the payment processing system" — because that
   is what the source CV says. Scale, load, latency and money are the single

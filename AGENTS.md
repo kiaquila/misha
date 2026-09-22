@@ -191,9 +191,9 @@ can perform them.
 
 **This repository owns the stage deployment.** Cloudflare is connected to
 `kiaquila/misha`: `main` builds the stable Worker and non-production branches
-build isolated previews. The old `kiaquila/web-design` connection is disabled;
-keep its `misha/` path in place as the documented rollback route until the
-account owner decides to retire it.
+build isolated previews. The old `kiaquila/web-design` connection and source
+copy are retired. Roll back a bad deployment through the Worker's retained
+Cloudflare versions, not by reconnecting the old repository.
 
 - **The stage is public.** It carries a real person's name, employers and
   career history. The contact address stays the placeholder until the owner
