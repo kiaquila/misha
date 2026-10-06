@@ -8,7 +8,8 @@
   },
   "type": "module",
   "overrides": {
-    "undici": "7.29.0"
+    "sharp": "0.35.5",
+    "undici": "7.29.1"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -21,9 +22,5 @@
   },
   "devDependencies": {
     "wrangler": "4.142.0"
-  },
-  "overrides": {
-    "sharp": "0.35.5",
-    "undici": "7.29.1"
   }
 }
