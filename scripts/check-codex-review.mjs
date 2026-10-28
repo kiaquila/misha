@@ -1,138 +1,170 @@
 #!/usr/bin/env node
-// AI review gate.
-//
-// The review itself is done by the Codex GitHub app, which answers a
-// `@codex review <full head sha>` comment on the pull request. This script only
-// reads the answer back and decides whether it covers the commit CI is running
-// on, so that a review of an older head cannot stand in for the current one.
-//
-// It passes when Codex has answered for this exact head and raised nothing at
-// P0-P2. It fails when Codex raised something blocking, and it fails when Codex
-// has not answered for this head yet — in that case ask for a review and re-run
-// this job.
 
-const CODEX = "chatgpt-codex-connector[bot]";
-const BLOCKING = /\bP[0-2]\b/;
+/* Requires the Codex connector to have reviewed the exact current head, with no
+   unresolved P0-P2 finding left on the pull request. Read-only: it reports what
+   the review already says and never publishes a check or a comment itself. */
 
-const repository = process.env.GITHUB_REPOSITORY;
-const token = process.env.GITHUB_TOKEN;
-const pullNumber = process.env.CODEX_REVIEW_PR_NUMBER;
-const headSha = (process.env.CODEX_REVIEW_HEAD_SHA || "").toLowerCase();
-const waitMs = Number(process.env.CODEX_REVIEW_WAIT_MS || 60_000);
-const pollMs = Number(process.env.CODEX_REVIEW_POLL_MS || 10_000);
+/* Each connection is paginated separately: a long-lived pull request can carry
+   more than one page of review threads, and an older unresolved P0-P2 must not
+   fall off the end and let the gate pass. */
+import { isNativeCleanComment, evaluateNativeEvidence } from "./native-codex-policy.mjs";
 
-for (const [name, value] of Object.entries({ repository, token, pullNumber, headSha })) {
-  if (!value) {
-    console.error(`Codex review gate is missing ${name}.`);
+const HEAD_QUERY = `query($owner:String!,$repo:String!,$number:Int!){
+  repository(owner:$owner,name:$repo){pullRequest(number:$number){headRefOid}}
+}`;
+
+const REVIEWS_QUERY = `query($owner:String!,$repo:String!,$number:Int!,$after:String){
+  repository(owner:$owner,name:$repo){pullRequest(number:$number){
+    connection: reviews(first:100,after:$after){
+      pageInfo{hasNextPage endCursor}
+      nodes{databaseId author{login __typename} commit{oid} state body submittedAt}
+    }
+  }}
+}`;
+
+const THREADS_QUERY = `query($owner:String!,$repo:String!,$number:Int!,$after:String){
+  repository(owner:$owner,name:$repo){pullRequest(number:$number){
+    connection: reviewThreads(first:100,after:$after){
+      pageInfo{hasNextPage endCursor}
+      nodes{isResolved comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login __typename} path body createdAt updatedAt}}}
+    }
+  }}
+}`;
+
+const COMMENTS_QUERY = `query($owner:String!,$repo:String!,$number:Int!,$after:String){
+  repository(owner:$owner,name:$repo){pullRequest(number:$number){
+    connection: comments(first:100,after:$after){
+      pageInfo{hasNextPage endCursor}
+      nodes{databaseId author{login __typename} authorAssociation body createdAt updatedAt}
+    }
+  }}
+}`;
+
+export function commentReviews(comments, head) {
+  return comments.some(comment => isNativeCleanComment(comment, head));
+}
+
+
+/* Codex opens a finding with a severity badge built from nested <sub> tags and
+   an image link. Strip that furniture so the reported line is the title. */
+export function headline(body) {
+  return body
+    .split("\n")[0]
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/[*`]/g, "")
+    .trim();
+}
+
+export function evaluate(pullRequest, headSha) {
+  const head = headSha || pullRequest.headRefOid;
+  const result = evaluateNativeEvidence({ head,
+    reviews: pullRequest.reviews.nodes,
+    comments: pullRequest.comments?.nodes || [],
+    threads: pullRequest.reviewThreads.nodes,
+  });
+  return { ...result, blocking: result.blocking.map(finding => {
+    const colon = finding.indexOf(": ");
+    return colon >= 0 ? finding.slice(0, colon + 2) + headline(finding.slice(colon + 2)) : finding;
+  }) };
+
+}
+
+async function graphql(token, query, variables) {
+  const response = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ query, variables })
+  });
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${await response.text()}`);
+  const payload = await response.json();
+  if (payload.errors) throw new Error(payload.errors.map((error) => error.message).join("; "));
+  return payload.data.repository.pullRequest;
+}
+
+async function collectAll(token, query, variables) {
+  const nodes = [];
+  let after = null;
+  for (;;) {
+    const { connection } = await graphql(token, query, { ...variables, after });
+    nodes.push(...connection.nodes);
+    if (!connection.pageInfo.hasNextPage) return nodes;
+    after = connection.pageInfo.endCursor;
+  }
+}
+
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+  const token = process.env.GITHUB_TOKEN;
+  const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? "").split("/");
+  const number = Number(process.env.CODEX_REVIEW_PR_NUMBER);
+  if (!token || !owner || !repo || !Number.isInteger(number)) {
+    console.error("GITHUB_TOKEN, GITHUB_REPOSITORY, and CODEX_REVIEW_PR_NUMBER are required.");
     process.exit(1);
   }
-}
-if (!/^[0-9a-f]{40}$/.test(headSha)) {
-  console.error(`Codex review gate needs a full 40-character head SHA, got "${headSha}".`);
-  process.exit(1);
-}
 
-const shortSha = headSha.slice(0, 10);
+  const variables = { owner, repo, number };
+  const deadline = Date.now() + Number(process.env.CODEX_REVIEW_WAIT_MS ?? 600_000);
+  const pollMs = Number(process.env.CODEX_REVIEW_POLL_MS ?? 20_000);
 
-async function api(pathname) {
-  const results = [];
-  for (let page = 1; page <= 10; page += 1) {
-    const response = await fetch(
-      `https://api.github.com/repos/${repository}/${pathname}?per_page=100&page=${page}`,
-      {
-        headers: {
-          accept: "application/vnd.github+json",
-          authorization: `Bearer ${token}`,
-          "x-github-api-version": "2022-11-28"
-        }
+  /* This job starts seconds after the push, while Codex is still reading the
+     diff, so waiting is the normal path rather than an error. A review that has
+     already landed with findings is a verdict, not a pending state, and ends
+     the wait immediately. */
+  for (;;) {
+    const [{ headRefOid }, reviews, reviewThreads, comments] = await Promise.all([
+      graphql(token, HEAD_QUERY, variables),
+      collectAll(token, REVIEWS_QUERY, variables),
+      collectAll(token, THREADS_QUERY, variables),
+      collectAll(token, COMMENTS_QUERY, variables)
+    ]);
+    const pullRequest = {
+      headRefOid,
+      reviews: { nodes: reviews },
+      reviewThreads: { nodes: reviewThreads },
+      comments: { nodes: comments }
+    };
+    const { head, reviewed, blocking } = evaluate(pullRequest, process.env.CODEX_REVIEW_HEAD_SHA);
+
+    /* The head moving means a newer run is already queued for the new one. */
+    if (headRefOid !== head) {
+      console.log(`Skipped: PR #${number} head moved from ${head} to ${headRefOid}.`);
+      process.exit(1);
+    }
+
+    if (reviewed && blocking.length === 0) {
+      /* The queries above run in parallel, so the thread list can have been read
+         just before a review was submitted and the review just after it. Read
+         the threads once more, now that the review is known to exist, so a
+         finding submitted in that window cannot slip past. */
+      const [finalReviews, finalThreads, finalComments] = await Promise.all([
+        collectAll(token, REVIEWS_QUERY, variables),
+        collectAll(token, THREADS_QUERY, variables),
+        collectAll(token, COMMENTS_QUERY, variables),
+      ]);
+      const finalHead = await graphql(token, HEAD_QUERY, variables);
+      const settled = evaluate({ headRefOid: finalHead.headRefOid,
+        reviews: { nodes: finalReviews }, reviewThreads: { nodes: finalThreads },
+        comments: { nodes: finalComments } }, head);
+      if (finalHead.headRefOid !== head) throw new Error("PR head moved during final verification");
+      if (settled.reviewed && settled.blocking.length === 0) {
+        console.log(`Native Codex approved ${head} with all review threads resolved.`);
+        process.exit(0);
       }
-    );
-    if (!response.ok) {
-      throw new Error(`GitHub API ${pathname} responded ${response.status}`);
+      if (!settled.blocking.length) throw new Error("Native approval changed during final verification");
+      console.error(settled.blocking.map((finding) => `- Unresolved finding — ${finding}`).join("\n"));
+      process.exit(1);
     }
-    const batch = await response.json();
-    results.push(...batch);
-    if (batch.length < 100) break;
+    if (blocking.length) {
+      console.error(blocking.map((finding) => `- Unresolved finding — ${finding}`).join("\n"));
+      process.exit(1);
+    }
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      console.error(`- No Codex review for ${head} within the wait. Comment: @codex review ${head}`);
+      process.exit(1);
+    }
+    console.log(`Waiting for a Codex review of ${head} (${Math.round(remaining / 1000)}s left)...`);
+    await new Promise((wake) => setTimeout(wake, Math.min(pollMs, remaining)));
   }
-  return results;
 }
-
-function isCodex(entry) {
-  return String(entry?.user?.login || "").toLowerCase() === CODEX;
-}
-
-// Codex's own summary comment names the commit it read, so it is accepted on
-// its own even when the app left no formal review.
-function summaryVerdict(comments) {
-  const summaries = comments.filter(
-    (comment) =>
-      isCodex(comment) &&
-      /^Codex Review:/im.test(comment.body || "") &&
-      new RegExp(`Reviewed commit:?\\*{0,2}\\s*\`?${shortSha}`, "i").test(comment.body || "")
-  );
-  if (summaries.length === 0) return null;
-  const blocking = summaries.find((comment) => BLOCKING.test(comment.body || ""));
-  if (blocking) return { result: "fail", why: "its summary for this head names a P0-P2 finding" };
-  const clean = summaries.find((comment) =>
-    /Didn't find any major issues/i.test(comment.body || "")
-  );
-  return clean ? { result: "pass", why: "Codex found no major issues on this head" } : null;
-}
-
-function reviewVerdict(reviews, inlineComments) {
-  const atHead = reviews.filter(
-    (review) => isCodex(review) && String(review.commit_id || "").toLowerCase() === headSha
-  );
-  if (atHead.length === 0) return null;
-
-  for (const review of atHead) {
-    if (review.state === "CHANGES_REQUESTED") {
-      return { result: "fail", why: "Codex requested changes on this head" };
-    }
-    if (BLOCKING.test(review.body || "")) {
-      return { result: "fail", why: "Codex's review body on this head names a P0-P2 finding" };
-    }
-    const inline = inlineComments.filter(
-      (comment) => isCodex(comment) && comment.pull_request_review_id === review.id
-    );
-    const blocking = inline.filter((comment) => BLOCKING.test(comment.body || ""));
-    if (blocking.length > 0) {
-      return {
-        result: "fail",
-        why: `Codex left ${blocking.length} P0-P2 finding(s) on this head`
-      };
-    }
-  }
-  return { result: "pass", why: "Codex reviewed this head and raised nothing blocking" };
-}
-
-async function verdict() {
-  const [reviews, inlineComments, comments] = await Promise.all([
-    api(`pulls/${pullNumber}/reviews`),
-    api(`pulls/${pullNumber}/comments`),
-    api(`issues/${pullNumber}/comments`)
-  ]);
-  return reviewVerdict(reviews, inlineComments) || summaryVerdict(comments);
-}
-
-const deadline = Date.now() + waitMs;
-let answer = null;
-for (;;) {
-  answer = await verdict();
-  if (answer || Date.now() >= deadline) break;
-  console.log(`No Codex answer for ${shortSha} yet; waiting…`);
-  await new Promise((resolve) => setTimeout(resolve, pollMs));
-}
-
-if (!answer) {
-  console.error(
-    `Codex has not reviewed ${headSha} yet.\n` +
-      `Comment "@codex review ${headSha}" on the pull request, then re-run this job.`
-  );
-  process.exit(1);
-}
-if (answer.result === "fail") {
-  console.error(`Codex review failed for ${headSha}: ${answer.why}.`);
-  process.exit(1);
-}
-console.log(`Codex review passed for ${headSha}: ${answer.why}.`);

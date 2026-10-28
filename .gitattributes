@@ -9,3 +9,11 @@ scripts/check-codex-review.mjs    linguist-vendored
 scripts/check-repository.mjs      linguist-vendored
 tests/check-repository.test.mjs   linguist-vendored
 tests/harness.test.mjs            linguist-vendored
+scripts/codex-comment-evidence.mjs linguist-vendored
+scripts/codex-review-state.mjs linguist-vendored
+scripts/codex-review-help.mjs linguist-vendored
+scripts/native-codex-policy.mjs linguist-vendored
+tests/native-codex-policy.test.mjs linguist-vendored
+tests/fixtures/native-codex-clean-replies.json linguist-vendored
+tests/fixtures/codex-state.mjs linguist-vendored
+tests/native-codex-cli.test.mjs linguist-vendored
