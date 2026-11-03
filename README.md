@@ -31,12 +31,12 @@ three places the owner controls:
 | Role | Senior Backend Developer | CV |
 | Email | `example@e-mail.com` — **placeholder**, awaiting the owner's choice | — |
 | LinkedIn | [chappp](https://www.linkedin.com/in/chappp) | CV |
-| Telegram | `chapppp` — **unverified**, supplied by the owner's wife | client |
+| Telegram | `chapppp` | owner confirmation |
 | GitHub | [cucumberfalse](https://github.com/cucumberfalse) | GitHub |
 | Location | Buenos Aires | GitHub profile |
 | Positioning line and "What I can help with" | Verbatim | GitHub profile README |
-| Summary, roles, dates, achievements | Condensed, no claim added | CV |
-| Education, spoken languages | 2003–2008 PSTU; English C1, Spanish A1, Russian native | CV |
+| Summary, roles, dates, achievements | Condensed, no claim added | CV and owner confirmation |
+| Education, spoken languages | 2003–2008 PSTU, IT; English C1, Spanish A1, Russian native | CV and owner confirmation |
 | `cabadrive`, `takeyourmeds` | Descriptions from the repositories | GitHub |
 
 The years of experience are **derived**, never typed: from `IT_START`
@@ -45,9 +45,10 @@ years he has actually completed rather than subtracting calendar years. Copy
 carries `%IT_YEARS%` and `%BACKEND_YEARS%`; a test fails if a literal appears
 instead.
 
-The LinkedIn profile could not be read programmatically — LinkedIn answers
-automated requests with HTTP 999 — so nothing on the page comes from it. If the
-profile carries wording the CV does not, it has to be pasted in by hand.
+The LinkedIn profile is a cross-check rather than the source of truth. The owner
+confirmed that LitRes began in July 2016 even though LinkedIn currently says
+July 2017, chose different ATS-friendly role wording for VK and LitRes, and
+confirmed IT as the education field.
 
 ## Design
 
@@ -130,16 +131,9 @@ npm --prefix website run dev
   domain. The live settings, dated verification record and version-based
   rollback are written down in
   [`docs/stage-hosting.md`](./docs/stage-hosting.md).
-- **The CV itself is thin on numbers.** Every achievement on the page is
-  qualitative — "refactoring of the payment processing system" — because that
-  is what the source CV says. Scale, load, latency and money are the single
-  biggest missing ingredient; see
-  [`competitor-review.md`](./competitor-review.md) for where the market puts
-  them and what to ask him for.
 - **The Telegram handle is one letter away from the LinkedIn one.** LinkedIn
-  is `chappp` and Telegram is `chapppp`; both came from the owner's side and
-  the second has not been opened to confirm it. Check it before the page is
-  shown to anyone.
+  is `chappp` and Telegram is `chapppp`; both are confirmed and intentionally
+  different.
 - **No PDF is committed.** The page *is* the PDF: `print.css` reflows the same
   content into an ordinary one-column CV document — no rail, no numerals, no
   buttons, dates in a narrow left column — set in the same Jost the site uses
