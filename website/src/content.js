@@ -117,9 +117,11 @@ export const experience = {
         "VK Pay platform provides different payment services for VK users, " +
         "various parts of the VK ecosystem and external customers.",
       points: [
-        "Developing, optimizing and troubleshooting the backend for the website, mobile apps and internal API.",
-        "Close collaboration with managers and QA engineers to test and release.",
-        "Refactoring of the payment processing system."
+        "Established stable weekly releases, replacing unpredictable monthly releases; post-release verification and rollback procedures reduced partial service degradation after faulty releases to minutes.",
+        "Introduced story-point estimation and deeper task decomposition, making development timelines predictable.",
+        "Codified development and test environments as manifests, reducing environment recovery and new-hire setup from two days to minutes.",
+        "Updated the technical documentation, shortening new-hire onboarding.",
+        "Automated reconciliation workflows, cutting supporting-document preparation from several days to minutes."
       ]
     },
     {
@@ -131,12 +133,12 @@ export const experience = {
       points: [
         "Developing, optimizing and troubleshooting the backend for the website, mobile apps and internal API.",
         "Refactoring of the payment processing system (Perl, Kafka).",
-        "Close collaboration with managers and QA engineers to test and release."
+        "Built a CI module that provisions a complete environment and runs end-to-end tests, reducing test development time by 80% and increasing bugs caught before release fivefold."
       ]
     },
     {
       period: "July 2016 — July 2021",
-      title: "Backend Developer",
+      title: "Senior Software Developer",
       company: "LitRes",
       place: "Moscow",
       context:
@@ -144,15 +146,15 @@ export const experience = {
         "audiobooks, a website, mobile applications and an extensive " +
         "partner network.",
       points: [
-        "Extensive refactoring of the recommendation system (Perl, MySQL).",
-        "Developed the backend for instant search (Perl, Sphinx, MySQL).",
+        "Rebuilt the recommendation system (Perl, MySQL), improving performance fivefold and, together with marketing changes, increasing sales from the recommendation channel by 20%.",
+        "Developed the instant-search backend (Perl, Sphinx, MySQL), accelerating complex queries fivefold.",
         "Developed the backend for iframe applications in social networks (Perl, MySQL).",
         "Automation tests (Node.js), plus continuous improvements and bug fixes."
       ]
     },
     {
       period: "May 2008 — July 2016",
-      title: "Chief Access Network Engineer",
+      title: "Access Network Engineer → Chief Access Network Engineer",
       company: "Er-Telecom",
       place: "Perm",
       context:
@@ -163,7 +165,9 @@ export const experience = {
         "Network management processes migrated to the FCAPS model.",
         "Access network migrated to the VLAN-per-customer model.",
         "Authorization migrated from local accounts to a RADIUS server synchronized with Active Directory.",
-        "Configuration validation software developed (Python, Perl); access-network configuration unified and automated.",
+        "Standardized and automated access-network configuration, reducing new-equipment setup from one hour to five minutes.",
+        "Developed configuration-validation tooling in Python and Perl, reducing misconfiguration incidents by 95%.",
+        "Refactored overloaded parts of the physical network topology, reducing low-speed complaints in the affected segments by 95%.",
         "Acceptance and testing processes for new channels developed and implemented; upstream monitoring automated."
       ]
     }
@@ -183,7 +187,7 @@ export const skills = {
     label: "Education",
     period: "2003 — 2008",
     school: "Perm State Technical University (PSTU)",
-    detail: "Electrical Engineering Faculty — Engineer, Master's degree with merit"
+    detail: "IT — Engineer, Master's degree with merit"
   },
   languages: {
     label: "Spoken",
