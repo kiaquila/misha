@@ -43,6 +43,17 @@ test("structured completion, pending state and independent security findings rem
  assert.equal(evaluate([record(security),record(receipt,{id:3,created_at:"2026-10-20T12:03:00Z",updated_at:"2026-10-20T12:03:00Z"})]).reviewed,false);
 });
 
+test("the native disclosure summary preserves strict structured evidence",()=>{
+ const legacy=cleanStateBody(head);
+ const boundary=legacy.indexOf("\n\n");
+ const metadata=legacy.slice(0,boundary);
+ const visible=legacy.slice(boundary+2);
+ const disclosure=`${metadata}\n\n<details>\n<summary><strong>Codex Review Summary</strong>: ✅ Completed</summary>\n\n${visible.replace(/^## Codex Review Summary\n\n/,"")}\n</details>`;
+ assert.equal(evaluate([record(disclosure)]).reviewed,true);
+ assert.equal(evaluate([record(disclosure.replace("✅ Completed","🔄 Running"))]).reviewed,false);
+ assert.equal(evaluate([record(disclosure.replace("\n</details>","\nUnexpected prose.\n</details>"))]).reviewed,false);
+});
+
 test("reply order never replaces reviewed commit identity",()=>{
  assert.equal(evaluate([record("Codex Review: Didn't find any major issues.")]).reviewed,false);
  assert.equal(evaluate([record("Codex Review: Didn't find any major issues. Nice work!")]).reviewed,false);
