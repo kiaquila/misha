@@ -8,6 +8,12 @@ const owner={id:1,user:{login:"owner",type:"User"},author_association:"OWNER",bo
 const bot={login:"chatgpt-codex-connector[bot]",type:"Bot"};
 const record=(body,overrides={})=>({id:2,user:bot,body,created_at:"2026-10-20T12:02:00Z",updated_at:"2026-10-20T12:02:00Z",...overrides});
 const receipt=`<!-- codex-review-receipt:v1 -->\nCodex Review: Didn't find any major issues.\n**Reviewed commit:** \`${head}\``;
+const disclosure=(legacy,status="✅ Completed")=>{
+ const boundary=legacy.indexOf("\n\n");
+ const metadata=legacy.slice(0,boundary);
+ const visible=legacy.slice(boundary+2);
+ return `${metadata}\n\n<details>\n<summary><strong>Codex Review Summary</strong>: ${status}</summary>\n\n${visible.replace(/^## Codex Review Summary\n\n/,"")}\n</details>`;
+};
 const evaluate=(comments=[record(receipt)],extra={})=>evaluateNativeEvidence({head,comments:[owner,...comments],...extra});
 const corpus=JSON.parse(readFileSync(new URL("./fixtures/native-codex-clean-replies.json",import.meta.url)));
 for (const row of corpus) test(`complete native corpus: ${row.closing || "plain"}`,()=>{
@@ -44,14 +50,13 @@ test("structured completion, pending state and independent security findings rem
 });
 
 test("the native disclosure summary preserves strict structured evidence",()=>{
- const legacy=cleanStateBody(head);
- const boundary=legacy.indexOf("\n\n");
- const metadata=legacy.slice(0,boundary);
- const visible=legacy.slice(boundary+2);
- const disclosure=`${metadata}\n\n<details>\n<summary><strong>Codex Review Summary</strong>: ✅ Completed</summary>\n\n${visible.replace(/^## Codex Review Summary\n\n/,"")}\n</details>`;
- assert.equal(evaluate([record(disclosure)]).reviewed,true);
- assert.equal(evaluate([record(disclosure.replace("✅ Completed","🔄 Running"))]).reviewed,false);
- assert.equal(evaluate([record(disclosure.replace("\n</details>","\nUnexpected prose.\n</details>"))]).reviewed,false);
+ const body=disclosure(cleanStateBody(head));
+ assert.equal(evaluate([record(body)]).reviewed,true);
+ assert.equal(evaluate([record(body.replace("✅ Completed","🔄 Running"))]).reviewed,false);
+ assert.equal(evaluate([record(body.replace("\n</details>","\nUnexpected prose.\n</details>"))]).reviewed,false);
+ const negative=cleanStateBody(head,state=>({...state,security_review:{commit_sha:head,has_any_findings:true,has_unresolved_findings:true,status:"completed"}}));
+ const later=record(receipt,{id:3,created_at:"2026-10-20T12:03:00Z",updated_at:"2026-10-20T12:03:00Z"});
+ assert.equal(evaluate([record(disclosure(negative,"🔄 Running")),later]).reviewed,false);
 });
 
 test("reply order never replaces reviewed commit identity",()=>{

@@ -207,7 +207,7 @@ export const parseCodexState = (
     )
   )
     return false;
-  if (disclosure.status) {
+  if (disclosure.status && !negativeEnvelope) {
     const active = Object.values(state).filter(
       (review) => review.status !== null,
     );
