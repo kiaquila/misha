@@ -49,6 +49,21 @@ const canonicalTimestamp = (value) => {
 const observationSecondEnd = (observed) =>
   Math.floor(observed / 1000) * 1000 + 1000;
 
+// Codex now wraps the same machine record and table in a disclosure instead
+// of rendering the title as an H2. Unwrap only that exact native envelope so
+// the existing closed-schema parser remains the single source of truth for
+// the state, table, clocks, help text and any unexpected trailing prose.
+const unwrapSummaryDisclosure = (body) => {
+  const match = String(body || "").match(
+    /^(<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 [^\r\n]+ -->)\n\n<details>\n<summary><strong>Codex Review Summary<\/strong>: (✅ Completed|🔄 Running)<\/summary>\n\n([\s\S]*)\n<\/details>$/,
+  );
+  if (!match) return { body: String(body || ""), status: null };
+  return {
+    body: `${match[1]}\n\n## Codex Review Summary\n\n${match[3]}`,
+    status: match[2],
+  };
+};
+
 // A structured snapshot is authoritative only with one closed-schema machine
 // record and the matching native visible table. Prose and reactions are not proof.
 export const parseCodexState = (
@@ -57,6 +72,8 @@ export const parseCodexState = (
   { sectionHeads = false, negativeEnvelope = false } = {},
 ) => {
   if (!/^[a-f0-9]{40}$/.test(head || "")) return false;
+  const disclosure = unwrapSummaryDisclosure(body);
+  body = disclosure.body;
   const rawMarkerLine = String(body || "").match(
     /^[^\r\n]*<!-- codex-pull-request-review-summary -->[^\r\n]*$/m,
   )?.[0];
@@ -190,6 +207,15 @@ export const parseCodexState = (
     )
   )
     return false;
+  if (disclosure.status) {
+    const active = Object.values(state).filter(
+      (review) => review.status !== null,
+    );
+    const expected = active.every((review) => review.status === "completed")
+      ? "✅ Completed"
+      : "🔄 Running";
+    if (disclosure.status !== expected) return false;
+  }
   let visible = match[2].trim();
   if (negativeEnvelope) {
     // A live typed negative survives ambiguous presentation. Only complete
