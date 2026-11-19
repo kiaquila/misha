@@ -241,5 +241,5 @@ export const contact = {
 
 export const footer = {
   copyright: "Mikhail Orlov",
-  credit: { label: "Designed by ks-design.art", after: " · Built with AI workflows" }
+  credit: { before: "Designed by ", name: "ks-design.art", after: " · Built with AI workflows" }
 };
