@@ -220,7 +220,7 @@ test("the offer carries no full stop", () => {
 test("the footer credits the designer and links to her site", () => {
   assert.match(
     html,
-    /Designed by <a[^>]*href="https:\/\/ks-design\.art"[^>]*>ks-design<\/a> · Built with AI workflows/
+    /<a[^>]*href="https:\/\/ks-design\.art"[^>]*>Designed by ks-design\.art<\/a> · Built with AI workflows/
   );
   assert.doesNotMatch(html, /AI workflows\./);
 });

@@ -254,9 +254,9 @@ function renderFooter(year) {
   return `<footer class="site-footer">
       <div class="shell">
         <p>© ${year} ${esc(footer.copyright)}</p>
-        <p class="footer-note">${esc(footer.credit.before)}${anchor(
+        <p class="footer-note">${anchor(
                 links.designer,
-                esc(footer.credit.name),
+                esc(footer.credit.label),
                 "footer-link"
               )}${esc(footer.credit.after)}</p>
       </div>
